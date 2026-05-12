@@ -695,29 +695,84 @@ const STAGE_DESC = {
 };
 
 // ── Demo text ────────────────────────────────────────────────────
-// 교과서 스타일 예시 텍스트 (어절 단위로 분리)
+// 각 문장: ko(어절 배열), en_full(영어 완전번역), de_full(독일어 완전번역)
+// ko 어절: { w:표시텍스트, vid?:vocabId, suffix?:조사 }
+// 2단계용 토큰: { t: 표시텍스트, vid?: 수학용어id (있으면 한국어로 교체) }
 const DEMO_SENTENCES = [
-  ["두", "직선이", "다른", "한", "직선과", "만날", "때", "같은", "위치에", "생기는", "두", "각을", "동위각이라고", "한다."],
-  ["두", "직선이", "다른", "한", "직선과", "만날", "때", "엇갈린", "위치에", "생기는", "두", "각을", "엇각이라고", "한다."],
-  ["두", "반지름과", "호로", "이루어진", "도형을", "부채꼴이라", "한다."],
-  ["원", "위의", "두", "점을", "잇는", "선분을", "현이라", "한다."],
-  ["다음", "부채꼴의", "넓이를", "구하시오."],
-  ["아래", "그림에서", "꼬인", "위치에", "있는", "모서리를", "각각", "찾으시오."],
+  {
+    ko: [
+      {w:"두"}, {w:"직선이", vid:"geo_003", suffix:"이"}, {w:"다른"}, {w:"한"},
+      {w:"직선과", vid:"geo_003", suffix:"과"}, {w:"만날"}, {w:"때"}, {w:"같은"},
+      {w:"위치에"}, {w:"생기는"}, {w:"두"}, {w:"각을", vid:"geo_008", suffix:"을"},
+      {w:"동위각이라고", vid:"geo_015", suffix:"이라고"}, {w:"한다."}
+    ],
+    en_full: "When two lines meet another line, the two angles in the same position are called corresponding angles.",
+    de_full: "Wenn zwei Geraden eine andere Gerade schneiden, heißen die Winkel in gleicher Lage Stufenwinkel.",
+    // 2단계: 완전번역 문장에서 수학용어 자리만 한국어로 교체
+    en_mix: [{t:"When two "},{t:"직선",vid:"geo_003"},{t:" meet another "},{t:"직선",vid:"geo_003"},{t:", the two "},{t:"각",vid:"geo_008"},{t:" in the same position are called "},{t:"동위각",vid:"geo_015"},{t:"."}],
+    de_mix: [{t:"Wenn zwei "},{t:"직선",vid:"geo_003"},{t:" eine andere "},{t:"직선",vid:"geo_003"},{t:" schneiden, heißen die "},{t:"각",vid:"geo_008"},{t:" in gleicher Lage "},{t:"동위각",vid:"geo_015"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"두"}, {w:"직선이", vid:"geo_003", suffix:"이"}, {w:"다른"}, {w:"한"},
+      {w:"직선과", vid:"geo_003", suffix:"과"}, {w:"만날"}, {w:"때"}, {w:"엇갈린"},
+      {w:"위치에"}, {w:"생기는"}, {w:"두"}, {w:"각을", vid:"geo_008", suffix:"을"},
+      {w:"엇각이라고", vid:"geo_016", suffix:"이라고"}, {w:"한다."}
+    ],
+    en_full: "When two lines meet another line, the two angles in alternating positions are called alternate angles.",
+    de_full: "Wenn zwei Geraden eine andere Gerade schneiden, heißen die versetzten Winkel Wechselwinkel.",
+    en_mix: [{t:"When two "},{t:"직선",vid:"geo_003"},{t:" meet another "},{t:"직선",vid:"geo_003"},{t:", the two "},{t:"각",vid:"geo_008"},{t:" in alternating positions are called "},{t:"엇각",vid:"geo_016"},{t:"."}],
+    de_mix: [{t:"Wenn zwei "},{t:"직선",vid:"geo_003"},{t:" eine andere "},{t:"직선",vid:"geo_003"},{t:" schneiden, heißen die versetzten "},{t:"각",vid:"geo_008"},{t:" "},{t:"엇각",vid:"geo_016"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"두"}, {w:"반지름과", vid:"geo_024", suffix:"과"}, {w:"호로", vid:"geo_020", suffix:"로"},
+      {w:"이루어진"}, {w:"도형을"}, {w:"부채꼴이라", vid:"geo_019", suffix:"이라"}, {w:"한다."}
+    ],
+    en_full: "A figure made up of two radii and an arc is called a sector.",
+    de_full: "Eine Figur, die aus zwei Radien und einem Bogen besteht, nennt man Kreissektor.",
+    en_mix: [{t:"A figure made up of two "},{t:"반지름",vid:"geo_024"},{t:" and an "},{t:"호",vid:"geo_020"},{t:" is called a "},{t:"부채꼴",vid:"geo_019"},{t:"."}],
+    de_mix: [{t:"Eine Figur aus zwei "},{t:"반지름",vid:"geo_024"},{t:" und einem "},{t:"호",vid:"geo_020"},{t:" nennt man "},{t:"부채꼴",vid:"geo_019"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"원"}, {w:"위의"}, {w:"두"}, {w:"점을"},
+      {w:"잇는"}, {w:"선분을", vid:"geo_005", suffix:"을"},
+      {w:"현이라", vid:"geo_021", suffix:"이라"}, {w:"한다."}
+    ],
+    en_full: "A line segment connecting two points on a circle is called a chord.",
+    de_full: "Eine Strecke, die zwei Punkte auf einem Kreis verbindet, nennt man Sehne.",
+    en_mix: [{t:"A "},{t:"선분",vid:"geo_005"},{t:" connecting two points on a circle is called a "},{t:"현",vid:"geo_021"},{t:"."}],
+    de_mix: [{t:"Eine "},{t:"선분",vid:"geo_005"},{t:", die zwei Punkte auf einem Kreis verbindet, nennt man "},{t:"현",vid:"geo_021"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"다음", vid:"inst_013"}, {w:"부채꼴의", vid:"geo_019", suffix:"의"},
+      {w:"넓이를", vid:"geo_040", suffix:"를"}, {w:"구하시오.", vid:"inst_001", suffix:"."}
+    ],
+    en_full: "Find the area of the following sector.",
+    de_full: "Berechne die Fläche des folgenden Kreissektors.",
+    en_mix: [{t:"Find the 넓이 of the following "},{t:"부채꼴",vid:"geo_019"},{t:"."}],
+    de_mix: [{t:"Berechne die 넓이 des folgenden "},{t:"부채꼴",vid:"geo_019"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"아래", vid:"inst_014"}, {w:"그림에서"},
+      {w:"꼬인 위치에", vid:"geo_014", suffix:"에"}, {w:"있는"},
+      {w:"모서리를", vid:"geo_039", suffix:"를"},
+      {w:"각각", vid:"inst_016"}, {w:"찾으시오.", vid:"inst_007", suffix:"."}
+    ],
+    en_full: "In the figure below, find all edges that are in skew positions.",
+    de_full: "Finde in der Abbildung unten alle Kanten, die in windschiefer Lage liegen.",
+    en_mix: [{t:"In the figure below, find all "},{t:"모서리",vid:"geo_039"},{t:" that are in "},{t:"꼬인 위치",vid:"geo_014"},{t:"."}],
+    de_mix: [{t:"Finde unten alle "},{t:"모서리",vid:"geo_039"},{t:" in "},{t:"꼬인 위치",vid:"geo_014"},{t:"."}],
+  },
 ];
 
-// 어절 → 용어 매핑 (어절에서 조사 제거 후 찾기)
-function findVocabForToken(word) {
-  // 직접 매치
-  if (VOCAB_MAP[word]) return VOCAB_MAP[word];
-  // 조사/어미 제거 시도
-  const suffixes = ['이라고','이라','이란','란','은','는','이','가','을','를','의','에서','에','와','과','으로','로','도','만','도','라고'];
-  for (const s of suffixes) {
-    if (word.endsWith(s)) {
-      const stem = word.slice(0, -s.length);
-      if (VOCAB_MAP[stem]) return VOCAB_MAP[stem];
-    }
-  }
-  return null;
+// vocab ID로 찾기
+function findVocabById(vid) {
+  if (!vid) return null;
+  return [...VOCAB.수학_용어, ...VOCAB.학습도구어].find(v => v.id === vid) || null;
 }
 
 // ── Render demo text ─────────────────────────────────────────────
@@ -725,46 +780,76 @@ function renderDemoText() {
   const container = document.getElementById('demo-text');
   container.innerHTML = '';
 
-  DEMO_SENTENCES.forEach((sentence, si) => {
+  DEMO_SENTENCES.forEach((sentence) => {
     const p = document.createElement('p');
     p.style.marginBottom = '8px';
 
-    sentence.forEach((word, wi) => {
-      const vocab = findVocabForToken(word);
+    // 1단계: 완전번역 문장을 통째로 표시
+    if (currentStage === 1) {
+      const span = document.createElement('span');
+      span.textContent = sentence[currentLang + '_full'];
+      p.appendChild(span);
+      container.appendChild(p);
+      return;
+    }
+
+    // 2단계: 번역문장 + 수학용어만 한국어로
+    if (currentStage === 2) {
+      const mixTokens = sentence[currentLang + '_mix'];
+      mixTokens.forEach(token => {
+        const vocab = findVocabById(token.vid);
+        const span = document.createElement('span');
+        span.className = 'token' + (token.vid ? ' has-translation' : '');
+        span.textContent = token.t;
+        if (vocab) {
+          span.addEventListener('click', (e) => onTokenClick(e, vocab, token.t));
+          span.addEventListener('mouseenter', (e) => showTooltip(e, vocab));
+          span.addEventListener('mouseleave', hideTooltip);
+        }
+        p.appendChild(span);
+      });
+      container.appendChild(p);
+      return;
+    }
+
+    // 2~4단계: 어절 단위 토큰으로 표시
+    sentence.ko.forEach((token, wi) => {
+      const vocab = findVocabById(token.vid);
       const isMathTerm = vocab && VOCAB.수학_용어.includes(vocab);
       const isInstTerm = vocab && VOCAB.학습도구어.includes(vocab);
-      const hasVocab = isMathTerm || isInstTerm;
+      const hasVocab = !!vocab;
+      const suffix = token.suffix || '';
 
       const span = document.createElement('span');
       span.className = 'token' + (hasVocab ? ' has-translation' : '');
-      span.dataset.word = word;
-      if (vocab) span.dataset.vocabId = vocab.id;
+      span.dataset.word = token.w;
 
-      // 단계별 표시
-      let displayText = word;
-      if (currentStage === 1 && vocab) {
-        // 전체 번역
-        displayText = vocab[currentLang] || word;
-      } else if (currentStage === 2 && vocab && isInstTerm) {
-        // 핵심단어(수학용어) 제외 번역 → 학습도구어만 번역
-        displayText = vocab[currentLang] || word;
-      } else if (currentStage === 3 && vocab && isMathTerm) {
-        // 핵심단어만 번역 → 수학용어만 번역
-        displayText = vocab[currentLang] || word;
+      let displayText;
+      if (currentStage === 2) {
+        // 수학용어는 한국어 유지, 학습도구어만 번역
+        if (isInstTerm) displayText = (vocab[currentLang] || token.w);
+        else if (isMathTerm) displayText = vocab.ko + suffix;
+        else displayText = token.w;
+      } else if (currentStage === 3) {
+        // 수학용어만 번역 + 조사 한국어로 유지
+        if (isMathTerm) displayText = (vocab[currentLang] || vocab.ko) + suffix;
+        else displayText = token.w;
+      } else {
+        // 4단계: 원문 그대로
+        displayText = token.w;
       }
-      // stage 4: 원문 그대로
 
-      span.textContent = displayText;
-      if (wi < sentence.length - 1) span.textContent += ' ';
+      span.textContent = wi < sentence.ko.length - 1 ? displayText + ' ' : displayText;
 
       if (hasVocab) {
-        span.addEventListener('click', (e) => onTokenClick(e, vocab, word));
+        span.addEventListener('click', (e) => onTokenClick(e, vocab, token.w));
         span.addEventListener('mouseenter', (e) => showTooltip(e, vocab));
         span.addEventListener('mouseleave', hideTooltip);
       }
 
       p.appendChild(span);
     });
+
     container.appendChild(p);
   });
 }
