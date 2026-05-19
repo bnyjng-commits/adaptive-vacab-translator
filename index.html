@@ -1251,8 +1251,8 @@ async function onLoginSuccess(user) {
 async function loadStudentData(userId) {
   const { data } = await supabaseClient
     .from('students')
-    .select('current_stage, session_count, stage_session_count')
-    .eq('user_id', userId)
+    .select('name, current_stage, session_count, stage_session_count')
+    .eq('id', userId)
     .single();
 
   if (data) {
@@ -1262,14 +1262,14 @@ async function loadStudentData(userId) {
     updateSessionDisplay();
   }
 
-  document.getElementById('user-name').textContent = currentUser.email;
+  document.getElementById('user-name').textContent = (data && data.name) ? data.name : currentUser.email;
   document.getElementById('user-info').classList.remove('hidden');
   document.getElementById('session-bar').classList.remove('hidden');
 }
 
 async function saveStageToDb(stage, newStageSessionCount) {
   if (!supabaseClient || !currentUser) return;
-  const payload = { user_id: currentUser.id, current_stage: stage };
+  const payload = { id: currentUser.id, current_stage: stage, updated_at: new Date().toISOString() };
   if (newStageSessionCount !== undefined) payload.stage_session_count = newStageSessionCount;
   await supabaseClient
     .from('students')
@@ -1332,10 +1332,11 @@ async function startSession() {
   const { error } = await supabaseClient
     .from('students')
     .upsert({
-      user_id: currentUser.id,
+      id: currentUser.id,
       current_stage: newStage,
       session_count: newSessionCount,
-      stage_session_count: newStageSessionCount
+      stage_session_count: newStageSessionCount,
+      updated_at: new Date().toISOString()
     });
 
   if (error) {
