@@ -1251,12 +1251,12 @@ async function onLoginSuccess(user) {
 async function loadStudentData(userId) {
   const { data } = await supabaseClient
     .from('students')
-    .select('stage, session_count, stage_session_count')
+    .select('current_stage, session_count, stage_session_count')
     .eq('user_id', userId)
     .single();
 
   if (data) {
-    setStage(data.stage || 1, false);
+    setStage(data.current_stage || 1, false);
     sessionCount = data.session_count || 0;
     stageSessionCount = data.stage_session_count || 0;
     updateSessionDisplay();
@@ -1269,7 +1269,7 @@ async function loadStudentData(userId) {
 
 async function saveStageToDb(stage, newStageSessionCount) {
   if (!supabaseClient || !currentUser) return;
-  const payload = { user_id: currentUser.id, stage };
+  const payload = { user_id: currentUser.id, current_stage: stage };
   if (newStageSessionCount !== undefined) payload.stage_session_count = newStageSessionCount;
   await supabaseClient
     .from('students')
@@ -1333,7 +1333,7 @@ async function startSession() {
     .from('students')
     .upsert({
       user_id: currentUser.id,
-      stage: newStage,
+      current_stage: newStage,
       session_count: newSessionCount,
       stage_session_count: newStageSessionCount
     });
