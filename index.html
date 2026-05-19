@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>교과 용어 번역 도우미</title>
+<<<<<<< HEAD
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+=======
+>>>>>>> ceb7f0001052e41722e91b3b5c8f50b815aecb59
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -513,6 +516,7 @@
     }
     .stage-desc { display: none; }
   }
+<<<<<<< HEAD
 
   /* ── 로그인 오버레이 ── */
   .login-overlay {
@@ -637,10 +641,13 @@
     border-color: #c0392b;
     color: #c0392b;
   }
+=======
+>>>>>>> ceb7f0001052e41722e91b3b5c8f50b815aecb59
 </style>
 </head>
 <body>
 
+<<<<<<< HEAD
 <!-- 로그인 오버레이 -->
 <div id="login-overlay" class="login-overlay">
   <div class="login-card">
@@ -654,6 +661,8 @@
   </div>
 </div>
 
+=======
+>>>>>>> ceb7f0001052e41722e91b3b5c8f50b815aecb59
 <!-- Tooltip -->
 <div class="tooltip" id="tooltip">
   <div class="tooltip-ko" id="tt-ko"></div>
@@ -672,10 +681,13 @@
     <button class="lang-btn" data-lang="en" onclick="setLang('en')">English</button>
     <button class="lang-btn active" data-lang="de" onclick="setLang('de')">Deutsch</button>
   </div>
+<<<<<<< HEAD
   <div class="user-info hidden" id="user-info">
     <span class="user-name-tag" id="user-name"></span>
     <button class="logout-btn" onclick="doLogout()">로그아웃</button>
   </div>
+=======
+>>>>>>> ceb7f0001052e41722e91b3b5c8f50b815aecb59
 </header>
 
 <!-- Stage bar -->
@@ -829,10 +841,13 @@ let currentStage = 1;
 let currentUnit = '전체';
 let clickedWords = new Set();
 
+<<<<<<< HEAD
 // ── Supabase 상태 ────────────────────────────────────────────────
 let supabaseClient = null;
 let currentUser = null;
 
+=======
+>>>>>>> ceb7f0001052e41722e91b3b5c8f50b815aecb59
 const STAGE_DESC = {
   1: '모든 텍스트를 번역합니다',
   2: '수학 핵심 용어 빼고 나머지를 번역합니다',
@@ -1047,14 +1062,21 @@ function setLang(lang) {
   renderVocabList();
 }
 
+<<<<<<< HEAD
 function setStage(stage, saveToDb = true) {
+=======
+function setStage(stage) {
+>>>>>>> ceb7f0001052e41722e91b3b5c8f50b815aecb59
   currentStage = stage;
   document.querySelectorAll('.stage-btn').forEach(b => {
     b.classList.toggle('active', parseInt(b.dataset.stage) === stage);
   });
   document.getElementById('stage-desc').textContent = STAGE_DESC[stage];
   renderDemoText();
+<<<<<<< HEAD
   if (saveToDb && currentUser) saveStageToDb(stage);
+=======
+>>>>>>> ceb7f0001052e41722e91b3b5c8f50b815aecb59
 }
 
 // ── Vocab list ───────────────────────────────────────────────────
@@ -1104,6 +1126,7 @@ function highlightVocab(ko) {
   });
 }
 
+<<<<<<< HEAD
 // ── Supabase 인증 ────────────────────────────────────────────────
 
 async function initSupabase() {
@@ -1216,6 +1239,11 @@ document.getElementById('login-email').addEventListener('keydown', (e) => {
 });
 
 initSupabase();
+=======
+// ── Init ─────────────────────────────────────────────────────────
+renderDemoText();
+renderVocabList();
+>>>>>>> ceb7f0001052e41722e91b3b5c8f50b815aecb59
 </script>
 </body>
 </html>
