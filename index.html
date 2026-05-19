@@ -577,6 +577,8 @@
     transform: translateX(-50%) translateY(12px);
   }
 
+  .toast.toast-error { background: #c0392b; }
+
   /* ── Responsive ── */
   @media (max-width: 900px) {
     .main {
@@ -1267,12 +1269,11 @@ async function loadStudentData(userId) {
 
 async function saveStageToDb(stage, newStageSessionCount) {
   if (!supabaseClient || !currentUser) return;
-  const payload = { stage };
+  const payload = { user_id: currentUser.id, stage };
   if (newStageSessionCount !== undefined) payload.stage_session_count = newStageSessionCount;
   await supabaseClient
     .from('students')
-    .update(payload)
-    .eq('user_id', currentUser.id);
+    .upsert(payload);
 }
 
 async function doLogin() {
@@ -1306,7 +1307,10 @@ function updateSessionDisplay() {
 }
 
 async function startSession() {
-  if (!supabaseClient || !currentUser) return;
+  if (!supabaseClient || !currentUser) {
+    showToast('로그인 상태를 확인해주세요', true);
+    return;
+  }
 
   const btn = document.getElementById('session-start-btn');
   btn.disabled = true;
@@ -1327,24 +1331,28 @@ async function startSession() {
 
   const { error } = await supabaseClient
     .from('students')
-    .update({
+    .upsert({
+      user_id: currentUser.id,
       stage: newStage,
       session_count: newSessionCount,
       stage_session_count: newStageSessionCount
-    })
-    .eq('user_id', currentUser.id);
+    });
 
-  if (!error) {
-    sessionCount = newSessionCount;
-    stageSessionCount = newStageSessionCount;
-    updateSessionDisplay();
+  if (error) {
+    showToast(`저장 오류: ${error.message}`, true);
+    btn.disabled = false;
+    return;
+  }
 
-    if (stageAdvanced) {
-      setStage(newStage, false);
-      showToast(`단계가 올라갔어요! 이제 ${newStage}단계예요 🎉`);
-    } else {
-      showToast('오늘 수업을 시작했어요 👋');
-    }
+  sessionCount = newSessionCount;
+  stageSessionCount = newStageSessionCount;
+  updateSessionDisplay();
+
+  if (stageAdvanced) {
+    setStage(newStage, false);
+    showToast(`단계가 올라갔어요! 이제 ${newStage}단계예요 🎉`);
+  } else {
+    showToast('오늘 수업을 시작했어요 👋');
   }
 
   btn.disabled = false;
@@ -1354,16 +1362,17 @@ async function startSession() {
 
 let toastTimer = null;
 
-function showToast(message) {
+function showToast(message, isError = false) {
   const toast = document.getElementById('toast');
   toast.textContent = message;
-  toast.classList.remove('hidden');
+  toast.classList.remove('hidden', 'toast-error');
+  if (isError) toast.classList.add('toast-error');
 
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
     toast.classList.add('hidden');
     toastTimer = null;
-  }, 3000);
+  }, isError ? 5000 : 3000);
 }
 
 function showLoginOverlay() {
