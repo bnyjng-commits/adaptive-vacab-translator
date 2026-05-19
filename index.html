@@ -88,6 +88,7 @@
 
   .lang-btn {
     padding: 6px 14px;
+    min-height: 44px;
     border-radius: 20px;
     border: 1.5px solid var(--border);
     background: transparent;
@@ -136,6 +137,7 @@
 
   .stage-btn {
     padding: 5px 14px;
+    min-height: 48px;
     border-radius: 20px;
     border: 1.5px solid var(--border);
     background: var(--surface);
@@ -444,7 +446,7 @@
 
   .demo-text {
     font-size: 15px;
-    line-height: 2.2;
+    line-height: 2.6;
     background: var(--bg);
     border-radius: var(--radius-sm);
     padding: 18px 20px;
@@ -505,13 +507,92 @@
     margin-top: 2px;
   }
 
+  /* ── 수업 시작 바 ── */
+  .session-bar {
+    background: var(--accent-light);
+    border-bottom: 1px solid #b7e4c7;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .session-bar.hidden { display: none; }
+
+  .session-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 13px;
+    color: var(--accent);
+  }
+
+  .session-count-label { font-weight: 500; }
+  .session-count-label strong { font-size: 16px; }
+  .session-total { color: var(--text-sub); }
+
+  .session-start-btn {
+    min-height: 48px;
+    padding: 0 32px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+  }
+
+  .session-start-btn:hover { background: var(--accent2); }
+  .session-start-btn:active { transform: scale(0.97); }
+  .session-start-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* ── 토스트 메시지 ── */
+  .toast {
+    position: fixed;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: var(--text-main);
+    color: white;
+    padding: 13px 28px;
+    border-radius: 28px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+    z-index: 300;
+    opacity: 1;
+    transition: opacity 0.35s, transform 0.35s;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .toast.hidden {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+  }
+
   /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .main {
+      grid-template-columns: 1fr 260px;
+      gap: 16px;
+    }
+  }
+
   @media (max-width: 720px) {
     .main {
       grid-template-columns: 1fr;
       padding: 16px;
     }
     .stage-desc { display: none; }
+    .session-info { display: none; }
+    .session-start-btn { width: 100%; }
   }
 
   /* ── 로그인 오버레이 ── */
@@ -623,6 +704,7 @@
 
   .logout-btn {
     padding: 5px 12px;
+    min-height: 44px;
     border-radius: 20px;
     border: 1.5px solid var(--border);
     background: transparent;
@@ -640,6 +722,9 @@
 </style>
 </head>
 <body>
+
+<!-- 토스트 메시지 -->
+<div class="toast hidden" id="toast"></div>
 
 <!-- 로그인 오버레이 -->
 <div id="login-overlay" class="login-overlay">
@@ -688,6 +773,15 @@
     <button class="stage-btn" data-stage="4" onclick="setStage(4)">4단계 — 번역 없음</button>
   </div>
   <span class="stage-desc" id="stage-desc">모든 텍스트를 번역합니다</span>
+</div>
+
+<!-- 수업 시작 바 -->
+<div class="session-bar hidden" id="session-bar">
+  <div class="session-info">
+    <span class="session-count-label">이번 단계 <strong id="stage-session-count">0</strong>/3차시</span>
+    <span class="session-total">누적 <strong id="total-session-count">0</strong>차시</span>
+  </div>
+  <button class="session-start-btn" id="session-start-btn" onclick="startSession()">수업 시작</button>
 </div>
 
 <!-- Main -->
@@ -832,6 +926,8 @@ let clickedWords = new Set();
 // ── Supabase 상태 ────────────────────────────────────────────────
 let supabaseClient = null;
 let currentUser = null;
+let sessionCount = 0;
+let stageSessionCount = 0;
 
 const STAGE_DESC = {
   1: '모든 텍스트를 번역합니다',
@@ -1054,7 +1150,11 @@ function setStage(stage, saveToDb = true) {
   });
   document.getElementById('stage-desc').textContent = STAGE_DESC[stage];
   renderDemoText();
-  if (saveToDb && currentUser) saveStageToDb(stage);
+  if (saveToDb && currentUser) {
+    stageSessionCount = 0;
+    updateSessionDisplay();
+    saveStageToDb(stage, 0);
+  }
 }
 
 // ── Vocab list ───────────────────────────────────────────────────
@@ -1149,27 +1249,30 @@ async function onLoginSuccess(user) {
 async function loadStudentData(userId) {
   const { data } = await supabaseClient
     .from('students')
-    .select('name, current_stage')
-    .eq('id', userId)
+    .select('stage, session_count, stage_session_count')
+    .eq('user_id', userId)
     .single();
 
   if (data) {
-    // 저장된 단계 복원 (DB 저장 없이)
-    setStage(data.current_stage || 1, false);
-    document.getElementById('user-name').textContent = data.name || currentUser.email;
-  } else {
-    document.getElementById('user-name').textContent = currentUser.email;
+    setStage(data.stage || 1, false);
+    sessionCount = data.session_count || 0;
+    stageSessionCount = data.stage_session_count || 0;
+    updateSessionDisplay();
   }
 
+  document.getElementById('user-name').textContent = currentUser.email;
   document.getElementById('user-info').classList.remove('hidden');
+  document.getElementById('session-bar').classList.remove('hidden');
 }
 
-async function saveStageToDb(stage) {
+async function saveStageToDb(stage, newStageSessionCount) {
   if (!supabaseClient || !currentUser) return;
+  const payload = { stage };
+  if (newStageSessionCount !== undefined) payload.stage_session_count = newStageSessionCount;
   await supabaseClient
     .from('students')
-    .update({ current_stage: stage, updated_at: new Date().toISOString() })
-    .eq('id', currentUser.id);
+    .update(payload)
+    .eq('user_id', currentUser.id);
 }
 
 async function doLogin() {
@@ -1193,6 +1296,74 @@ async function doLogin() {
 
 async function doLogout() {
   await supabaseClient.auth.signOut();
+}
+
+// ── 수업 시작 / 자동 페이딩 ──────────────────────────────────────
+
+function updateSessionDisplay() {
+  document.getElementById('stage-session-count').textContent = stageSessionCount;
+  document.getElementById('total-session-count').textContent = sessionCount;
+}
+
+async function startSession() {
+  if (!supabaseClient || !currentUser) return;
+
+  const btn = document.getElementById('session-start-btn');
+  btn.disabled = true;
+
+  const newSessionCount = sessionCount + 1;
+  let newStage = currentStage;
+  let newStageSessionCount;
+  let stageAdvanced = false;
+
+  // 현재 단계에서 3차시 이상이고 최고 단계(4)가 아니면 자동 전환
+  if (stageSessionCount >= 3 && currentStage < 4) {
+    newStage = currentStage + 1;
+    newStageSessionCount = 1;
+    stageAdvanced = true;
+  } else {
+    newStageSessionCount = stageSessionCount + 1;
+  }
+
+  const { error } = await supabaseClient
+    .from('students')
+    .update({
+      stage: newStage,
+      session_count: newSessionCount,
+      stage_session_count: newStageSessionCount
+    })
+    .eq('user_id', currentUser.id);
+
+  if (!error) {
+    sessionCount = newSessionCount;
+    stageSessionCount = newStageSessionCount;
+    updateSessionDisplay();
+
+    if (stageAdvanced) {
+      setStage(newStage, false);
+      showToast(`단계가 올라갔어요! 이제 ${newStage}단계예요 🎉`);
+    } else {
+      showToast('오늘 수업을 시작했어요 👋');
+    }
+  }
+
+  btn.disabled = false;
+}
+
+// ── 토스트 ───────────────────────────────────────────────────────
+
+let toastTimer = null;
+
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.remove('hidden');
+
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.add('hidden');
+    toastTimer = null;
+  }, 3000);
 }
 
 function showLoginOverlay() {
