@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>교과 용어 번역 도우미</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #f5f3ee;
+    --surface: #ffffff;
+    --surface2: #f0ede6;
+    --border: #ddd9d0;
+    --text-main: #1a1814;
+    --text-sub: #6b6560;
+    --text-light: #9e9890;
+    --accent: #2d6a4f;
+    --accent2: #40916c;
+    --accent-light: #d8f3dc;
+    --ko: #1a1814;
+    --en: #1d3557;
+    --de: #7b2d00;
+    --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-badge {
+    background: var(--accent);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  header h1 {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-main);
+  }
+
+  /* ── Language selector ── */
+  .lang-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .lang-label {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-right: 4px;
+  }
+
+  .lang-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s;
+    color: var(--text-sub);
+  }
+
+  .lang-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .lang-btn:hover:not(.active) {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  /* ── Stage bar ── */
+  .stage-bar {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .stage-label {
+    font-size: 12px;
+    color: var(--text-sub);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .stage-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .stage-btn {
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s;
+    color: var(--text-sub);
+    white-space: nowrap;
+  }
+
+  .stage-btn.active {
+    background: var(--text-main);
+    border-color: var(--text-main);
+    color: white;
+  }
+
+  .stage-btn:hover:not(.active) {
+    border-color: var(--text-main);
+    color: var(--text-main);
+  }
+
+  .stage-desc {
+    font-size: 11px;
+    color: var(--text-light);
+    margin-left: auto;
+  }
+
+  /* ── Main layout ── */
+  .main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 28px 24px;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* ── Upload zone ── */
+  .upload-zone {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  .upload-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+  }
+
+  .upload-zone h3 {
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .upload-zone p {
+    font-size: 13px;
+    color: var(--text-sub);
+  }
+
+  #file-input { display: none; }
+
+  /* ── Text content area ── */
+  .content-area {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    min-height: 420px;
+    box-shadow: var(--shadow-sm);
+    display: none;
+  }
+
+  .content-area.visible { display: block; }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-title {
+    font-size: 13px;
+    color: var(--text-sub);
+    font-weight: 400;
+  }
+
+  .page-badge {
+    font-size: 11px;
+    background: var(--surface2);
+    color: var(--text-sub);
+    padding: 3px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Text rendering with tokens ── */
+  .text-block {
+    font-size: 15px;
+    line-height: 2;
+    color: var(--text-main);
+  }
+
+  .token {
+    display: inline;
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 1px 2px;
+    transition: background 0.15s;
+    position: relative;
+  }
+
+  .token:hover {
+    background: var(--accent-light);
+  }
+
+  .token.has-translation {
+    border-bottom: 1.5px dotted var(--accent2);
+  }
+
+  /* ── Tooltip ── */
+  .tooltip {
+    position: fixed;
+    background: var(--text-main);
+    color: white;
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    max-width: 260px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.15s, transform 0.15s;
+  }
+
+  .tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .tooltip-ko {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 4px;
+  }
+
+  .tooltip-translation {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .tooltip-def {
+    font-size: 11px;
+    color: rgba(255,255,255,0.65);
+    line-height: 1.5;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 6px;
+    margin-top: 4px;
+  }
+
+  /* ── Side panel ── */
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .panel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .panel-card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-card-body {
+    padding: 14px 18px;
+  }
+
+  /* ── Search ── */
+  .search-wrap {
+    position: relative;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 9px 14px 9px 36px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+    font-size: 14px;
+  }
+
+  /* ── Vocab list ── */
+  .vocab-list {
+    max-height: 340px;
+    overflow-y: auto;
+    margin-top: 10px;
+  }
+
+  .vocab-list::-webkit-scrollbar { width: 4px; }
+  .vocab-list::-webkit-scrollbar-track { background: transparent; }
+  .vocab-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .vocab-item {
+    padding: 9px 4px;
+    border-bottom: 1px solid var(--surface2);
+    cursor: pointer;
+    transition: background 0.12s;
+    border-radius: 6px;
+  }
+
+  .vocab-item:hover { background: var(--surface2); padding-left: 8px; }
+  .vocab-item:last-child { border-bottom: none; }
+
+  .vocab-ko {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  .vocab-trans {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-top: 2px;
+  }
+
+  .vocab-unit-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 8px;
+    background: var(--surface2);
+    color: var(--text-light);
+    border: 1px solid var(--border);
+    float: right;
+    margin-top: 2px;
+  }
+
+  /* ── Demo text area ── */
+  .demo-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .demo-section h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .demo-section .sub {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-bottom: 20px;
+  }
+
+  .demo-text {
+    font-size: 15px;
+    line-height: 2.2;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Unit filter ── */
+  .unit-filter {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .unit-btn {
+    padding: 4px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-sub);
+  }
+
+  .unit-btn.active {
+    background: var(--accent-light);
+    border-color: var(--accent2);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* ── Stats ── */
+  .stats-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .stat-box {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-sub);
+    margin-top: 2px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 720px) {
+    .main {
+      grid-template-columns: 1fr;
+      padding: 16px;
+    }
+    .stage-desc { display: none; }
+  }
+
+  /* ── 로그인 오버레이 ── */
+  .login-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(245, 243, 238, 0.96);
+    backdrop-filter: blur(4px);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .login-overlay.hidden { display: none; }
+
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+
+  .login-brand {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  .login-card h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text-main);
+  }
+
+  .login-sub {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-bottom: 28px;
+  }
+
+  .login-field {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.15s;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .login-field:focus { border-color: var(--accent); }
+
+  .login-submit {
+    width: 100%;
+    padding: 13px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 4px;
+  }
+
+  .login-submit:hover:not(:disabled) { background: var(--accent2); }
+  .login-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .login-error {
+    font-size: 13px;
+    color: #c0392b;
+    margin-top: 12px;
+    min-height: 20px;
+  }
+
+  /* ── 사용자 정보 (헤더) ── */
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .user-info.hidden { display: none; }
+
+  .user-name-tag {
+    font-size: 13px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+
+  .logout-btn {
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-sub);
+  }
+
+  .logout-btn:hover {
+    border-color: #c0392b;
+    color: #c0392b;
+  }
+</style>
+</head>
+<body>
+
+<!-- 로그인 오버레이 -->
+<div id="login-overlay" class="login-overlay">
+  <div class="login-card">
+    <span class="login-brand">수학 Ⅳ</span>
+    <h2>로그인</h2>
+    <p class="login-sub">이메일과 비밀번호를 입력하세요</p>
+    <input class="login-field" type="email" id="login-email" placeholder="이메일" autocomplete="email">
+    <input class="login-field" type="password" id="login-password" placeholder="비밀번호" autocomplete="current-password">
+    <button class="login-submit" id="login-btn" onclick="doLogin()">로그인</button>
+    <p class="login-error" id="login-error"></p>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-ko" id="tt-ko"></div>
+  <div class="tooltip-translation" id="tt-trans"></div>
+  <div class="tooltip-def" id="tt-def"></div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="header-left">
+    <span class="logo-badge">수학 Ⅳ</span>
+    <h1>교과 용어 번역 도우미</h1>
+  </div>
+  <div class="lang-bar">
+    <span class="lang-label">번역 언어:</span>
+    <button class="lang-btn" data-lang="en" onclick="setLang('en')">English</button>
+    <button class="lang-btn active" data-lang="de" onclick="setLang('de')">Deutsch</button>
+  </div>
+  <div class="user-info hidden" id="user-info">
+    <span class="user-name-tag" id="user-name"></span>
+    <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+  </div>
+</header>
+
+<!-- Stage bar -->
+<div class="stage-bar">
+  <span class="stage-label">번역 단계:</span>
+  <div class="stage-btns">
+    <button class="stage-btn active" data-stage="1" onclick="setStage(1)">1단계 — 전체번역</button>
+    <button class="stage-btn" data-stage="2" onclick="setStage(2)">2단계 — 핵심단어 제외</button>
+    <button class="stage-btn" data-stage="3" onclick="setStage(3)">3단계 — 핵심단어만</button>
+    <button class="stage-btn" data-stage="4" onclick="setStage(4)">4단계 — 번역 없음</button>
+  </div>
+  <span class="stage-desc" id="stage-desc">모든 텍스트를 번역합니다</span>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Left: content -->
+  <div>
+    <!-- Demo text -->
+    <div class="demo-section">
+      <h2>📖 교과서 본문 미리보기</h2>
+      <p class="sub">파란 점선 단어를 클릭하면 번역이 표시됩니다. (PDF 업로드 기능은 다음 단계에서 추가됩니다)</p>
+      <div class="demo-text" id="demo-text"></div>
+    </div>
+  </div>
+
+  <!-- Right: side panel -->
+  <div class="side-panel">
+
+    <!-- Stats -->
+    <div class="panel-card">
+      <div class="panel-card-header">📊 용어집 현황</div>
+      <div class="panel-card-body">
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-num" id="stat-total">40</div>
+            <div class="stat-label">수학 용어</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" id="stat-inst">20</div>
+            <div class="stat-label">학습도구어</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" id="stat-clicked">0</div>
+            <div class="stat-label">클릭한 단어</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vocab search -->
+    <div class="panel-card">
+      <div class="panel-card-header">🔍 용어 검색</div>
+      <div class="panel-card-body">
+        <div class="search-wrap">
+          <span class="search-icon">🔎</span>
+          <input class="search-input" type="text" id="search-input" placeholder="한국어로 검색..." oninput="filterVocab()">
+        </div>
+        <div class="unit-filter" id="unit-filter">
+          <button class="unit-btn active" data-unit="전체" onclick="filterUnit(this, '전체')">전체</button>
+          <button class="unit-btn" data-unit="01_기본도형과_위치관계" onclick="filterUnit(this, '01_기본도형과_위치관계')">기본도형</button>
+          <button class="unit-btn" data-unit="02_평면도형의_성질" onclick="filterUnit(this, '02_평면도형의_성질')">평면도형</button>
+          <button class="unit-btn" data-unit="03_입체도형의_성질" onclick="filterUnit(this, '03_입체도형의_성질')">입체도형</button>
+        </div>
+        <div class="vocab-list" id="vocab-list"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Vocabulary data ──────────────────────────────────────────────
+const VOCAB = {
+  수학_용어: [
+    { id:"geo_001", ko:"교점", unit:"01_기본도형과_위치관계", en:"intersection point", de:"Schnittpunkt", definition_ko:"선과 선 또는 선과 면이 만나서 생기는 점" },
+    { id:"geo_002", ko:"교선", unit:"01_기본도형과_위치관계", en:"line of intersection", de:"Schnittgerade", definition_ko:"면과 면이 만나서 생기는 선" },
+    { id:"geo_003", ko:"직선", unit:"01_기본도형과_위치관계", en:"line", de:"Gerade", definition_ko:"두 점을 지나며 양쪽으로 끝없이 뻗는 선" },
+    { id:"geo_004", ko:"반직선", unit:"01_기본도형과_위치관계", en:"ray", de:"Strahl", definition_ko:"한 점에서 시작하여 한 방향으로 끝없이 뻗는 선" },
+    { id:"geo_005", ko:"선분", unit:"01_기본도형과_위치관계", en:"line segment", de:"Strecke", definition_ko:"두 점을 잇는 가장 짧은 선" },
+    { id:"geo_006", ko:"두 점 사이의 거리", unit:"01_기본도형과_위치관계", en:"distance between two points", de:"Abstand zwischen zwei Punkten", definition_ko:"두 점을 잇는 선분의 길이" },
+    { id:"geo_007", ko:"수선의 발", unit:"01_기본도형과_위치관계", en:"foot of perpendicular", de:"Lotfußpunkt", definition_ko:"한 점에서 직선에 수직으로 그은 직선이 만나는 점" },
+    { id:"geo_008", ko:"각", unit:"01_기본도형과_위치관계", en:"angle", de:"Winkel", definition_ko:"두 선이 만나서 생기는 도형" },
+    { id:"geo_009", ko:"예각", unit:"01_기본도형과_위치관계", en:"acute angle", de:"Spitzer Winkel", definition_ko:"0°보다 크고 90°보다 작은 각" },
+    { id:"geo_010", ko:"직각", unit:"01_기본도형과_위치관계", en:"right angle", de:"Rechter Winkel", definition_ko:"크기가 90°인 각" },
+    { id:"geo_011", ko:"둔각", unit:"01_기본도형과_위치관계", en:"obtuse angle", de:"Stumpfer Winkel", definition_ko:"90°보다 크고 180°보다 작은 각" },
+    { id:"geo_012", ko:"평각", unit:"01_기본도형과_위치관계", en:"straight angle", de:"Gestreckter Winkel", definition_ko:"크기가 180°인 각" },
+    { id:"geo_013", ko:"평행", unit:"01_기본도형과_위치관계", en:"parallel", de:"Parallel", definition_ko:"평면에서 서로 만나지 않는 두 직선의 관계" },
+    { id:"geo_014", ko:"꼬인 위치", unit:"01_기본도형과_위치관계", en:"skew lines", de:"Windschiefe Geraden", definition_ko:"공간에서 서로 만나지도 않고 평행하지도 않는 두 직선의 관계" },
+    { id:"geo_015", ko:"동위각", unit:"01_기본도형과_위치관계", en:"corresponding angles", de:"Stufenwinkel", definition_ko:"두 직선이 다른 한 직선과 만날 때 같은 위치에 생기는 두 각" },
+    { id:"geo_016", ko:"엇각", unit:"01_기본도형과_위치관계", en:"alternate angles", de:"Wechselwinkel", definition_ko:"두 직선이 다른 한 직선과 만날 때 엇갈린 위치에 생기는 두 각" },
+    { id:"geo_017", ko:"내각", unit:"02_평면도형의_성질", en:"interior angle", de:"Innenwinkel", definition_ko:"다각형에서 이웃하는 두 변으로 이루어지는 내부의 각" },
+    { id:"geo_018", ko:"외각", unit:"02_평면도형의_성질", en:"exterior angle", de:"Außenwinkel", definition_ko:"각 꼭짓점에서 한 변과 이웃한 변의 연장선이 이루는 각" },
+    { id:"geo_019", ko:"부채꼴", unit:"02_평면도형의_성질", en:"sector", de:"Kreissektor", definition_ko:"두 반지름과 호로 이루어진 도형" },
+    { id:"geo_020", ko:"호", unit:"02_평면도형의_성질", en:"arc", de:"Bogen", definition_ko:"원 위의 두 점으로 나누어진 원의 일부분" },
+    { id:"geo_021", ko:"현", unit:"02_평면도형의_성질", en:"chord", de:"Sehne", definition_ko:"원 위의 두 점을 잇는 선분" },
+    { id:"geo_022", ko:"중심각", unit:"02_평면도형의_성질", en:"central angle", de:"Mittelpunktswinkel", definition_ko:"부채꼴에서 두 반지름이 이루는 각" },
+    { id:"geo_023", ko:"활꼴", unit:"02_평면도형의_성질", en:"circular segment", de:"Kreissegment", definition_ko:"현과 호로 이루어진 도형" },
+    { id:"geo_024", ko:"반지름", unit:"02_평면도형의_성질", en:"radius", de:"Radius", definition_ko:"원의 중심에서 원 위의 한 점까지의 거리" },
+    { id:"geo_025", ko:"원주율", unit:"02_평면도형의_성질", en:"pi (π)", de:"Kreiszahl Pi", definition_ko:"원의 지름에 대한 원주의 비율 (약 3.14)" },
+    { id:"geo_026", ko:"다각형", unit:"02_평면도형의_성질", en:"polygon", de:"Vieleck", definition_ko:"세 개 이상의 선분으로 둘러싸인 평면도형" },
+    { id:"geo_027", ko:"다면체", unit:"03_입체도형의_성질", en:"polyhedron", de:"Polyeder", definition_ko:"다각형인 면으로만 둘러싸인 입체도형" },
+    { id:"geo_028", ko:"정다면체", unit:"03_입체도형의_성질", en:"Platonic solid", de:"Platonischer Körper", definition_ko:"각 면이 모두 합동인 정다각형이고, 각 꼭짓점에 모이는 면의 개수가 모두 같은 다면체" },
+    { id:"geo_029", ko:"각뿔대", unit:"03_입체도형의_성질", en:"frustum", de:"Pyramidenstumpf", definition_ko:"각뿔을 밑면에 평행한 평면으로 잘라 생기는 입체도형" },
+    { id:"geo_030", ko:"회전체", unit:"03_입체도형의_성질", en:"solid of revolution", de:"Rotationskörper", definition_ko:"한 직선을 축으로 하여 평면도형을 회전시켜서 생기는 입체도형" },
+    { id:"geo_031", ko:"회전축", unit:"03_입체도형의_성질", en:"axis of rotation", de:"Rotationsachse", definition_ko:"회전체를 만들 때 축으로 사용하는 직선" },
+    { id:"geo_032", ko:"겉넓이", unit:"03_입체도형의_성질", en:"surface area", de:"Oberfläche", definition_ko:"입체도형을 둘러싸고 있는 모든 면의 넓이의 합" },
+    { id:"geo_033", ko:"부피", unit:"03_입체도형의_성질", en:"volume", de:"Volumen", definition_ko:"입체도형이 차지하는 공간의 크기" },
+    { id:"geo_034", ko:"구", unit:"03_입체도형의_성질", en:"sphere", de:"Kugel", definition_ko:"반원을 지름을 축으로 1회전하여 생기는 입체도형 (공 모양)" },
+    { id:"geo_035", ko:"전개도", unit:"03_입체도형의_성질", en:"net (of a solid)", de:"Netz (eines Körpers)", definition_ko:"입체도형을 펼쳐서 평면 위에 그린 것" },
+    { id:"geo_036", ko:"밑넓이", unit:"03_입체도형의_성질", en:"base area", de:"Grundfläche", definition_ko:"입체도형의 밑면의 넓이" },
+    { id:"geo_037", ko:"높이", unit:"공통", en:"height", de:"Höhe", definition_ko:"도형에서 밑면에서 꼭짓점까지의 수직 거리" },
+    { id:"geo_038", ko:"꼭짓점", unit:"공통", en:"vertex", de:"Scheitelpunkt", definition_ko:"각이나 다각형, 입체도형에서 변 또는 모서리가 만나는 점" },
+    { id:"geo_039", ko:"모서리", unit:"공통", en:"edge", de:"Kante", definition_ko:"입체도형에서 두 면이 만나는 선분" },
+    { id:"geo_040", ko:"넓이", unit:"공통", en:"area", de:"Fläche", definition_ko:"평면도형이 차지하는 크기" }
+  ],
+  학습도구어: [
+    { id:"inst_001", ko:"구하시오", en:"Find", de:"Berechne", note:"계산하여 답을 쓰라는 수학 지시어" },
+    { id:"inst_002", ko:"말하시오", en:"Explain", de:"Erkläre", note:"설명을 쓰라는 지시어" },
+    { id:"inst_003", ko:"나타내시오", en:"Show / Express", de:"Zeige", note:"기호·그림·식으로 표현하라는 지시어" },
+    { id:"inst_004", ko:"표시하시오", en:"Mark / Indicate", de:"Markiere", note:"그림 위에 위치를 표시하라는 지시어" },
+    { id:"inst_005", ko:"그리시오", en:"Draw", de:"Zeichne", note:"도형이나 그래프를 그리라는 지시어" },
+    { id:"inst_006", ko:"쓰시오", en:"Write", de:"Schreibe", note:"답이나 풀이를 적으라는 지시어" },
+    { id:"inst_007", ko:"찾으시오", en:"Find / Identify", de:"Finde", note:"해당하는 것을 골라 찾으라는 지시어" },
+    { id:"inst_008", ko:"설명하시오", en:"Explain", de:"Erkläre", note:"이유나 방법을 글로 설명하라는 지시어" },
+    { id:"inst_009", ko:"확인하시오", en:"Check / Verify", de:"Überprüfe", note:"답이 맞는지 검증하라는 지시어" },
+    { id:"inst_010", ko:"계산하시오", en:"Calculate", de:"Berechne", note:"수식을 풀어 답을 내라는 지시어" },
+    { id:"inst_011", ko:"비교하시오", en:"Compare", de:"Vergleiche", note:"두 대상의 같고 다른 점을 밝히라는 지시어" },
+    { id:"inst_012", ko:"이용하여", en:"using", de:"mithilfe von", note:"특정 방법이나 공식을 활용하라는 지시어" },
+    { id:"inst_013", ko:"다음", en:"the following", de:"das Folgende", note:"아래 내용을 보시오라는 뜻" },
+    { id:"inst_014", ko:"아래", en:"below", de:"unten", note:"그림이나 표가 아래에 있음을 가리키는 지시어" },
+    { id:"inst_015", ko:"오른쪽", en:"right (side)", de:"rechts", note:"그림의 방향을 가리키는 지시어" },
+    { id:"inst_016", ko:"각각", en:"each / respectively", de:"jeweils", note:"여러 항목을 하나씩 대응시키라는 지시어" },
+    { id:"inst_017", ko:"모두", en:"all", de:"alle", note:"빠짐없이 다 구하라는 지시어" },
+    { id:"inst_018", ko:"알맞은", en:"appropriate / correct", de:"passende", note:"빈칸에 맞는 것을 고르라는 지시어" },
+    { id:"inst_019", ko:"풀어보자", en:"Let's solve", de:"Lösen wir", note:"안내형 문제 지시어" },
+    { id:"inst_020", ko:"크기를 구하시오", en:"Find the measure of", de:"Berechne die Größe von", note:"각도나 길이를 수치로 구하라는 지시어" }
+  ]
+};
+
+// 빠른 검색용 맵 만들기
+const VOCAB_MAP = {};
+[...VOCAB.수학_용어, ...VOCAB.학습도구어].forEach(v => {
+  VOCAB_MAP[v.ko] = v;
+});
+
+// ── State ────────────────────────────────────────────────────────
+let currentLang = 'de';
+let currentStage = 1;
+let currentUnit = '전체';
+let clickedWords = new Set();
+
+// ── Supabase 상태 ────────────────────────────────────────────────
+let supabaseClient = null;
+let currentUser = null;
+
+const STAGE_DESC = {
+  1: '모든 텍스트를 번역합니다',
+  2: '수학 핵심 용어 빼고 나머지를 번역합니다',
+  3: '수학 핵심 용어만 번역합니다',
+  4: '한국어 원문 그대로 표시합니다'
+};
+
+// ── Demo text ────────────────────────────────────────────────────
+// 각 문장: ko(어절 배열), en_full(영어 완전번역), de_full(독일어 완전번역)
+// ko 어절: { w:표시텍스트, vid?:vocabId, suffix?:조사 }
+// 2단계용 토큰: { t: 표시텍스트, vid?: 수학용어id (있으면 한국어로 교체) }
+const DEMO_SENTENCES = [
+  {
+    ko: [
+      {w:"두"}, {w:"직선이", vid:"geo_003", suffix:"이"}, {w:"다른"}, {w:"한"},
+      {w:"직선과", vid:"geo_003", suffix:"과"}, {w:"만날"}, {w:"때"}, {w:"같은"},
+      {w:"위치에"}, {w:"생기는"}, {w:"두"}, {w:"각을", vid:"geo_008", suffix:"을"},
+      {w:"동위각이라고", vid:"geo_015", suffix:"이라고"}, {w:"한다."}
+    ],
+    en_full: "When two lines meet another line, the two angles in the same position are called corresponding angles.",
+    de_full: "Wenn zwei Geraden eine andere Gerade schneiden, heißen die Winkel in gleicher Lage Stufenwinkel.",
+    // 2단계: 완전번역 문장에서 수학용어 자리만 한국어로 교체
+    en_mix: [{t:"When two "},{t:"직선",vid:"geo_003"},{t:" meet another "},{t:"직선",vid:"geo_003"},{t:", the two "},{t:"각",vid:"geo_008"},{t:" in the same position are called "},{t:"동위각",vid:"geo_015"},{t:"."}],
+    de_mix: [{t:"Wenn zwei "},{t:"직선",vid:"geo_003"},{t:" eine andere "},{t:"직선",vid:"geo_003"},{t:" schneiden, heißen die "},{t:"각",vid:"geo_008"},{t:" in gleicher Lage "},{t:"동위각",vid:"geo_015"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"두"}, {w:"직선이", vid:"geo_003", suffix:"이"}, {w:"다른"}, {w:"한"},
+      {w:"직선과", vid:"geo_003", suffix:"과"}, {w:"만날"}, {w:"때"}, {w:"엇갈린"},
+      {w:"위치에"}, {w:"생기는"}, {w:"두"}, {w:"각을", vid:"geo_008", suffix:"을"},
+      {w:"엇각이라고", vid:"geo_016", suffix:"이라고"}, {w:"한다."}
+    ],
+    en_full: "When two lines meet another line, the two angles in alternating positions are called alternate angles.",
+    de_full: "Wenn zwei Geraden eine andere Gerade schneiden, heißen die versetzten Winkel Wechselwinkel.",
+    en_mix: [{t:"When two "},{t:"직선",vid:"geo_003"},{t:" meet another "},{t:"직선",vid:"geo_003"},{t:", the two "},{t:"각",vid:"geo_008"},{t:" in alternating positions are called "},{t:"엇각",vid:"geo_016"},{t:"."}],
+    de_mix: [{t:"Wenn zwei "},{t:"직선",vid:"geo_003"},{t:" eine andere "},{t:"직선",vid:"geo_003"},{t:" schneiden, heißen die versetzten "},{t:"각",vid:"geo_008"},{t:" "},{t:"엇각",vid:"geo_016"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"두"}, {w:"반지름과", vid:"geo_024", suffix:"과"}, {w:"호로", vid:"geo_020", suffix:"로"},
+      {w:"이루어진"}, {w:"도형을"}, {w:"부채꼴이라", vid:"geo_019", suffix:"이라"}, {w:"한다."}
+    ],
+    en_full: "A figure made up of two radii and an arc is called a sector.",
+    de_full: "Eine Figur, die aus zwei Radien und einem Bogen besteht, nennt man Kreissektor.",
+    en_mix: [{t:"A figure made up of two "},{t:"반지름",vid:"geo_024"},{t:" and an "},{t:"호",vid:"geo_020"},{t:" is called a "},{t:"부채꼴",vid:"geo_019"},{t:"."}],
+    de_mix: [{t:"Eine Figur aus zwei "},{t:"반지름",vid:"geo_024"},{t:" und einem "},{t:"호",vid:"geo_020"},{t:" nennt man "},{t:"부채꼴",vid:"geo_019"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"원"}, {w:"위의"}, {w:"두"}, {w:"점을"},
+      {w:"잇는"}, {w:"선분을", vid:"geo_005", suffix:"을"},
+      {w:"현이라", vid:"geo_021", suffix:"이라"}, {w:"한다."}
+    ],
+    en_full: "A line segment connecting two points on a circle is called a chord.",
+    de_full: "Eine Strecke, die zwei Punkte auf einem Kreis verbindet, nennt man Sehne.",
+    en_mix: [{t:"A "},{t:"선분",vid:"geo_005"},{t:" connecting two points on a circle is called a "},{t:"현",vid:"geo_021"},{t:"."}],
+    de_mix: [{t:"Eine "},{t:"선분",vid:"geo_005"},{t:", die zwei Punkte auf einem Kreis verbindet, nennt man "},{t:"현",vid:"geo_021"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"다음", vid:"inst_013"}, {w:"부채꼴의", vid:"geo_019", suffix:"의"},
+      {w:"넓이를", vid:"geo_040", suffix:"를"}, {w:"구하시오.", vid:"inst_001", suffix:"."}
+    ],
+    en_full: "Find the area of the following sector.",
+    de_full: "Berechne die Fläche des folgenden Kreissektors.",
+    en_mix: [{t:"Find the 넓이 of the following "},{t:"부채꼴",vid:"geo_019"},{t:"."}],
+    de_mix: [{t:"Berechne die 넓이 des folgenden "},{t:"부채꼴",vid:"geo_019"},{t:"."}],
+  },
+  {
+    ko: [
+      {w:"아래", vid:"inst_014"}, {w:"그림에서"},
+      {w:"꼬인 위치에", vid:"geo_014", suffix:"에"}, {w:"있는"},
+      {w:"모서리를", vid:"geo_039", suffix:"를"},
+      {w:"각각", vid:"inst_016"}, {w:"찾으시오.", vid:"inst_007", suffix:"."}
+    ],
+    en_full: "In the figure below, find all edges that are in skew positions.",
+    de_full: "Finde in der Abbildung unten alle Kanten, die in windschiefer Lage liegen.",
+    en_mix: [{t:"In the figure below, find all "},{t:"모서리",vid:"geo_039"},{t:" that are in "},{t:"꼬인 위치",vid:"geo_014"},{t:"."}],
+    de_mix: [{t:"Finde unten alle "},{t:"모서리",vid:"geo_039"},{t:" in "},{t:"꼬인 위치",vid:"geo_014"},{t:"."}],
+  },
+];
+
+// vocab ID로 찾기
+function findVocabById(vid) {
+  if (!vid) return null;
+  return [...VOCAB.수학_용어, ...VOCAB.학습도구어].find(v => v.id === vid) || null;
+}
+
+// ── Render demo text ─────────────────────────────────────────────
+function renderDemoText() {
+  const container = document.getElementById('demo-text');
+  container.innerHTML = '';
+
+  DEMO_SENTENCES.forEach((sentence) => {
+    const p = document.createElement('p');
+    p.style.marginBottom = '8px';
+
+    // 1단계: 완전번역 문장을 통째로 표시
+    if (currentStage === 1) {
+      const span = document.createElement('span');
+      span.textContent = sentence[currentLang + '_full'];
+      p.appendChild(span);
+      container.appendChild(p);
+      return;
+    }
+
+    // 2단계: 번역문장 + 수학용어만 한국어로
+    if (currentStage === 2) {
+      const mixTokens = sentence[currentLang + '_mix'];
+      mixTokens.forEach(token => {
+        const vocab = findVocabById(token.vid);
+        const span = document.createElement('span');
+        span.className = 'token' + (token.vid ? ' has-translation' : '');
+        span.textContent = token.t;
+        if (vocab) {
+          span.addEventListener('click', (e) => onTokenClick(e, vocab, token.t));
+          span.addEventListener('mouseenter', (e) => showTooltip(e, vocab));
+          span.addEventListener('mouseleave', hideTooltip);
+        }
+        p.appendChild(span);
+      });
+      container.appendChild(p);
+      return;
+    }
+
+    // 2~4단계: 어절 단위 토큰으로 표시
+    sentence.ko.forEach((token, wi) => {
+      const vocab = findVocabById(token.vid);
+      const isMathTerm = vocab && VOCAB.수학_용어.includes(vocab);
+      const isInstTerm = vocab && VOCAB.학습도구어.includes(vocab);
+      const hasVocab = !!vocab;
+      const suffix = token.suffix || '';
+
+      const span = document.createElement('span');
+      span.className = 'token' + (hasVocab ? ' has-translation' : '');
+      span.dataset.word = token.w;
+
+      let displayText;
+      if (currentStage === 2) {
+        // 수학용어는 한국어 유지, 학습도구어만 번역
+        if (isInstTerm) displayText = (vocab[currentLang] || token.w);
+        else if (isMathTerm) displayText = vocab.ko + suffix;
+        else displayText = token.w;
+      } else if (currentStage === 3) {
+        // 수학용어만 번역 + 조사 한국어로 유지
+        if (isMathTerm) displayText = (vocab[currentLang] || vocab.ko) + suffix;
+        else displayText = token.w;
+      } else {
+        // 4단계: 원문 그대로
+        displayText = token.w;
+      }
+
+      span.textContent = wi < sentence.ko.length - 1 ? displayText + ' ' : displayText;
+
+      if (hasVocab) {
+        span.addEventListener('click', (e) => onTokenClick(e, vocab, token.w));
+        span.addEventListener('mouseenter', (e) => showTooltip(e, vocab));
+        span.addEventListener('mouseleave', hideTooltip);
+      }
+
+      p.appendChild(span);
+    });
+
+    container.appendChild(p);
+  });
+}
+
+// ── Token click ──────────────────────────────────────────────────
+function onTokenClick(e, vocab, originalWord) {
+  e.stopPropagation();
+  clickedWords.add(originalWord);
+  document.getElementById('stat-clicked').textContent = clickedWords.size;
+  showTooltip(e, vocab);
+}
+
+// ── Tooltip ──────────────────────────────────────────────────────
+function showTooltip(e, vocab) {
+  const tt = document.getElementById('tooltip');
+  document.getElementById('tt-ko').textContent = vocab.ko;
+  document.getElementById('tt-trans').textContent = vocab[currentLang] || '—';
+  const def = vocab.definition_ko || vocab.note || '';
+  document.getElementById('tt-def').textContent = def;
+  document.getElementById('tt-def').style.display = def ? 'block' : 'none';
+
+  tt.classList.add('visible');
+  positionTooltip(e);
+}
+
+function positionTooltip(e) {
+  const tt = document.getElementById('tooltip');
+  const x = e.clientX + 12;
+  const y = e.clientY - 10;
+  const maxX = window.innerWidth - 280;
+  const maxY = window.innerHeight - 140;
+  tt.style.left = Math.min(x, maxX) + 'px';
+  tt.style.top = Math.min(y, maxY) + 'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('visible');
+}
+
+document.addEventListener('click', hideTooltip);
+
+// ── Lang / Stage setters ─────────────────────────────────────────
+function setLang(lang) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+  renderDemoText();
+  renderVocabList();
+}
+
+function setStage(stage, saveToDb = true) {
+  currentStage = stage;
+  document.querySelectorAll('.stage-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.stage) === stage);
+  });
+  document.getElementById('stage-desc').textContent = STAGE_DESC[stage];
+  renderDemoText();
+  if (saveToDb && currentUser) saveStageToDb(stage);
+}
+
+// ── Vocab list ───────────────────────────────────────────────────
+function renderVocabList() {
+  const list = document.getElementById('vocab-list');
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  const all = [...VOCAB.수학_용어, ...VOCAB.학습도구어];
+
+  const filtered = all.filter(v => {
+    const unitOk = currentUnit === '전체' || v.unit === currentUnit;
+    const searchOk = !q || v.ko.includes(q) || (v[currentLang] || '').toLowerCase().includes(q);
+    return unitOk && searchOk;
+  });
+
+  list.innerHTML = filtered.map(v => {
+    const unitLabel = v.unit ? v.unit.replace('01_','').replace('02_','').replace('03_','').replace(/_/g,' ') : '도구어';
+    return `
+      <div class="vocab-item" onclick="highlightVocab('${v.ko}')">
+        <span class="vocab-unit-badge">${unitLabel.slice(0,4)}</span>
+        <div class="vocab-ko">${v.ko}</div>
+        <div class="vocab-trans">${v[currentLang] || '—'}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function filterVocab() { renderVocabList(); }
+
+function filterUnit(btn, unit) {
+  currentUnit = unit;
+  document.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderVocabList();
+}
+
+function highlightVocab(ko) {
+  // 해당 단어 토큰에 잠깐 하이라이트
+  document.querySelectorAll('.token').forEach(t => {
+    if (t.dataset.word && t.dataset.word.startsWith(ko)) {
+      t.style.background = 'var(--accent-light)';
+      t.style.outline = '2px solid var(--accent)';
+      setTimeout(() => {
+        t.style.background = '';
+        t.style.outline = '';
+      }, 1200);
+    }
+  });
+}
+
+// ── Supabase 인증 ────────────────────────────────────────────────
+
+async function initSupabase() {
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) throw new Error('config 응답 오류');
+    const { supabaseUrl, supabaseAnonKey, error } = await res.json();
+    if (error) throw new Error(error);
+
+    supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+    // 기존 세션 확인
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+      await onLoginSuccess(session.user);
+    } else {
+      showLoginOverlay();
+    }
+
+    // 세션 변화 감지 (다른 탭 로그아웃 등)
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        await onLoginSuccess(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        currentUser = null;
+        document.getElementById('user-info').classList.add('hidden');
+        showLoginOverlay();
+      }
+    });
+  } catch {
+    showLoginOverlay();
+    document.getElementById('login-error').textContent =
+      '서버 연결 실패. 환경변수(SUPABASE_URL, SUPABASE_ANON_KEY)를 확인해주세요.';
+  }
+}
+
+async function onLoginSuccess(user) {
+  currentUser = user;
+  await loadStudentData(user.id);
+  hideLoginOverlay();
+}
+
+async function loadStudentData(userId) {
+  const { data } = await supabaseClient
+    .from('students')
+    .select('name, current_stage')
+    .eq('id', userId)
+    .single();
+
+  if (data) {
+    // 저장된 단계 복원 (DB 저장 없이)
+    setStage(data.current_stage || 1, false);
+    document.getElementById('user-name').textContent = data.name || currentUser.email;
+  } else {
+    document.getElementById('user-name').textContent = currentUser.email;
+  }
+
+  document.getElementById('user-info').classList.remove('hidden');
+}
+
+async function saveStageToDb(stage) {
+  if (!supabaseClient || !currentUser) return;
+  await supabaseClient
+    .from('students')
+    .update({ current_stage: stage, updated_at: new Date().toISOString() })
+    .eq('id', currentUser.id);
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+
+  errorEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = '로그인 중...';
+
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    errorEl.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.';
+    btn.disabled = false;
+    btn.textContent = '로그인';
+  }
+}
+
+async function doLogout() {
+  await supabaseClient.auth.signOut();
+}
+
+function showLoginOverlay() {
+  document.getElementById('login-overlay').classList.remove('hidden');
+}
+
+function hideLoginOverlay() {
+  document.getElementById('login-overlay').classList.add('hidden');
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+renderDemoText();
+renderVocabList();
+
+// Enter 키로 로그인
+document.getElementById('login-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doLogin();
+});
+document.getElementById('login-email').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('login-password').focus();
+});
+
+initSupabase();
+</script>
+</body>
+</html>
