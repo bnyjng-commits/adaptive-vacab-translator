@@ -175,9 +175,14 @@
     padding: 28px 24px;
     display: grid;
     grid-template-columns: 1fr 340px;
+    grid-template-areas:
+      "content side"
+      "endbtn  side";
     gap: 24px;
     align-items: start;
   }
+
+  .content-col { grid-area: content; }
 
   /* ── Text content area ── */
   .content-area {
@@ -254,6 +259,7 @@
 
   /* ── Side panel ── */
   .side-panel {
+    grid-area: side;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -436,9 +442,10 @@
 
   /* ── 수업 종료 버튼 ── */
   .session-end-btn {
+    grid-area: endbtn;
+    align-self: start;
     display: block;
     width: 100%;
-    margin-top: 12px;
     min-height: 52px;
     background: var(--surface);
     color: var(--text-sub);
@@ -585,6 +592,10 @@
   @media (max-width: 1024px) {
     .main {
       grid-template-columns: 1fr;
+      grid-template-areas:
+        "content"
+        "side"
+        "endbtn";
       max-width: 100%;
       padding: 20px 16px;
       gap: 20px;
@@ -798,8 +809,8 @@
 <!-- Main -->
 <div class="main">
 
-  <!-- Left: content -->
-  <div>
+  <!-- Content column -->
+  <div class="content-col">
     <!-- Demo text -->
     <div class="demo-section">
       <h2>📖 교과서 본문 미리보기</h2>
@@ -815,12 +826,9 @@
       <span class="stat-chip">이번 단계 <strong id="stage-session-count">0</strong>/3차시</span>
       <span class="stat-chip">누적 <strong id="total-session-count">0</strong>차시</span>
     </div>
-
-    <!-- 수업 종료 버튼 -->
-    <button class="session-end-btn hidden" id="session-end-btn" onclick="openNoteModal()">수업 종료</button>
   </div>
 
-  <!-- Right: side panel -->
+  <!-- Side panel -->
   <div class="side-panel">
 
     <!-- Vocab search -->
@@ -842,6 +850,9 @@
     </div>
 
   </div>
+
+  <!-- 수업 종료 버튼 -->
+  <button class="session-end-btn hidden" id="session-end-btn" onclick="openNoteModal()">수업 종료</button>
 </div>
 
 <script>
