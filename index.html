@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="screen-orientation" content="portrait">
 <title>교과 용어 번역 도우미</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -178,40 +179,6 @@
     align-items: start;
   }
 
-  /* ── Upload zone ── */
-  .upload-zone {
-    background: var(--surface);
-    border: 2px dashed var(--border);
-    border-radius: var(--radius);
-    padding: 48px 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .upload-zone:hover, .upload-zone.dragover {
-    border-color: var(--accent);
-    background: var(--accent-light);
-  }
-
-  .upload-icon {
-    font-size: 40px;
-    margin-bottom: 12px;
-  }
-
-  .upload-zone h3 {
-    font-size: 15px;
-    font-weight: 500;
-    margin-bottom: 6px;
-  }
-
-  .upload-zone p {
-    font-size: 13px;
-    color: var(--text-sub);
-  }
-
-  #file-input { display: none; }
-
   /* ── Text content area ── */
   .content-area {
     background: var(--surface);
@@ -225,37 +192,7 @@
 
   .content-area.visible { display: block; }
 
-  .page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .page-title {
-    font-size: 13px;
-    color: var(--text-sub);
-    font-weight: 400;
-  }
-
-  .page-badge {
-    font-size: 11px;
-    background: var(--surface2);
-    color: var(--text-sub);
-    padding: 3px 10px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-  }
-
   /* ── Text rendering with tokens ── */
-  .text-block {
-    font-size: 15px;
-    line-height: 2;
-    color: var(--text-main);
-  }
-
   .token {
     display: inline;
     cursor: pointer;
@@ -265,9 +202,7 @@
     position: relative;
   }
 
-  .token:hover {
-    background: var(--accent-light);
-  }
+  .token:hover { background: var(--accent-light); }
 
   .token.has-translation {
     border-bottom: 1.5px dotted var(--accent2);
@@ -343,14 +278,10 @@
     gap: 8px;
   }
 
-  .panel-card-body {
-    padding: 14px 18px;
-  }
+  .panel-card-body { padding: 14px 18px; }
 
   /* ── Search ── */
-  .search-wrap {
-    position: relative;
-  }
+  .search-wrap { position: relative; }
 
   .search-input {
     width: 100%;
@@ -365,9 +296,7 @@
     transition: border-color 0.15s;
   }
 
-  .search-input:focus {
-    border-color: var(--accent);
-  }
+  .search-input:focus { border-color: var(--accent); }
 
   .search-icon {
     position: absolute;
@@ -423,6 +352,33 @@
     margin-top: 2px;
   }
 
+  /* ── Unit filter ── */
+  .unit-filter {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .unit-btn {
+    padding: 4px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-sub);
+  }
+
+  .unit-btn.active {
+    background: var(--accent-light);
+    border-color: var(--accent2);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
   /* ── Demo text area ── */
   .demo-section {
     background: var(--surface);
@@ -453,104 +409,150 @@
     border: 1px solid var(--border);
   }
 
-  /* ── Unit filter ── */
-  .unit-filter {
+  /* ── 인라인 용어집 현황 ── */
+  .inline-stats {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
-    margin-bottom: 10px;
+    padding: 14px 0 4px;
   }
 
-  .unit-btn {
-    padding: 4px 10px;
-    border-radius: 12px;
+  .inline-stats.hidden { display: none; }
+
+  .stat-chip {
+    background: var(--surface);
     border: 1px solid var(--border);
-    background: transparent;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+
+  .stat-chip strong {
+    color: var(--accent);
+    font-size: 14px;
+    margin: 0 2px;
+  }
+
+  /* ── 수업 종료 버튼 ── */
+  .session-end-btn {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    min-height: 52px;
+    background: var(--surface);
+    color: var(--text-sub);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
     font-family: inherit;
-    font-size: 11px;
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.15s;
-    color: var(--text-sub);
+    letter-spacing: 0.3px;
   }
 
-  .unit-btn.active {
-    background: var(--accent-light);
-    border-color: var(--accent2);
+  .session-end-btn:hover {
+    border-color: var(--accent);
     color: var(--accent);
-    font-weight: 600;
+    background: var(--accent-light);
   }
 
-  /* ── Stats ── */
-  .stats-row {
+  .session-end-btn.hidden { display: none; }
+
+  /* ── 노트 모달 ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 24, 20, 0.55);
+    backdrop-filter: blur(3px);
+    z-index: 600;
     display: flex;
-    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
   }
 
-  .stat-box {
-    flex: 1;
-    background: var(--bg);
+  .modal-overlay.hidden { display: none; }
+
+  .modal-card {
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px;
-    text-align: center;
+    border-radius: var(--radius);
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 460px;
+    box-shadow: var(--shadow);
   }
 
-  .stat-num {
-    font-size: 22px;
+  .modal-title {
+    font-size: 18px;
     font-weight: 700;
-    color: var(--accent);
+    margin-bottom: 6px;
+    color: var(--text-main);
   }
 
-  .stat-label {
-    font-size: 11px;
-    color: var(--text-sub);
-    margin-top: 2px;
-  }
-
-  /* ── 수업 시작 바 ── */
-  .session-bar {
-    background: var(--accent-light);
-    border-bottom: 1px solid #b7e4c7;
-    padding: 12px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-  }
-
-  .session-bar.hidden { display: none; }
-
-  .session-info {
-    display: flex;
-    align-items: center;
-    gap: 20px;
+  .modal-sub {
     font-size: 13px;
-    color: var(--accent);
+    color: var(--text-sub);
+    margin-bottom: 18px;
   }
 
-  .session-count-label { font-weight: 500; }
-  .session-count-label strong { font-size: 16px; }
-  .session-total { color: var(--text-sub); }
-
-  .session-start-btn {
-    min-height: 48px;
-    padding: 0 32px;
-    background: var(--accent);
-    color: white;
-    border: none;
+  .note-textarea {
+    width: 100%;
+    height: 140px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
     border-radius: var(--radius-sm);
     font-family: inherit;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.15s, transform 0.1s;
-    white-space: nowrap;
-    letter-spacing: 0.5px;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text-main);
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.15s;
+    display: block;
   }
 
-  .session-start-btn:hover { background: var(--accent2); }
-  .session-start-btn:active { transform: scale(0.97); }
-  .session-start-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  .note-textarea:focus { border-color: var(--accent); }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    justify-content: flex-end;
+  }
+
+  .modal-btn {
+    padding: 10px 22px;
+    min-height: 44px;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1.5px solid var(--border);
+  }
+
+  .modal-btn-skip {
+    background: transparent;
+    color: var(--text-sub);
+  }
+
+  .modal-btn-skip:hover {
+    border-color: var(--text-sub);
+    color: var(--text-main);
+  }
+
+  .modal-btn-save {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .modal-btn-save:hover { background: var(--accent2); border-color: var(--accent2); }
+  .modal-btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
 
   /* ── 토스트 메시지 ── */
   .toast {
@@ -580,21 +582,24 @@
   .toast.toast-error { background: #c0392b; }
 
   /* ── Responsive ── */
-  @media (max-width: 900px) {
+  @media (max-width: 1024px) {
     .main {
-      grid-template-columns: 1fr 260px;
-      gap: 16px;
+      grid-template-columns: 1fr;
+      max-width: 100%;
+      padding: 20px 16px;
+      gap: 20px;
     }
+    header h1 { font-size: 15px; }
+    .stage-btn { font-size: 13px; min-height: 52px; padding: 6px 16px; }
+    .demo-text { font-size: 16px; line-height: 2.8; }
+    .session-end-btn { min-height: 56px; font-size: 16px; }
+    .modal-card { padding: 28px 20px; }
   }
 
   @media (max-width: 720px) {
-    .main {
-      grid-template-columns: 1fr;
-      padding: 16px;
-    }
     .stage-desc { display: none; }
-    .session-info { display: none; }
-    .session-start-btn { width: 100%; }
+    header h1 { display: none; }
+    .stat-chip { font-size: 11px; padding: 5px 10px; }
   }
 
   /* ── 로그인 오버레이 ── */
@@ -741,6 +746,19 @@
   </div>
 </div>
 
+<!-- 수업 종료 노트 모달 -->
+<div class="modal-overlay hidden" id="note-modal">
+  <div class="modal-card">
+    <h3 class="modal-title">오늘 수업 기록</h3>
+    <p class="modal-sub">오늘 배운 내용을 자유롭게 적어보세요</p>
+    <textarea class="note-textarea" id="note-text" placeholder="어렵거나 쉬웠던 것, 궁금한 것 무엇이든 좋아요 (건너뛰어도 됩니다)"></textarea>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-skip" onclick="closeNoteModal()">건너뛰기</button>
+      <button class="modal-btn modal-btn-save" id="note-save-btn" onclick="saveNote()">저장하기</button>
+    </div>
+  </div>
+</div>
+
 <!-- Tooltip -->
 <div class="tooltip" id="tooltip">
   <div class="tooltip-ko" id="tt-ko"></div>
@@ -777,15 +795,6 @@
   <span class="stage-desc" id="stage-desc">모든 텍스트를 번역합니다</span>
 </div>
 
-<!-- 수업 시작 바 -->
-<div class="session-bar hidden" id="session-bar">
-  <div class="session-info">
-    <span class="session-count-label">이번 단계 <strong id="stage-session-count">0</strong>/3차시</span>
-    <span class="session-total">누적 <strong id="total-session-count">0</strong>차시</span>
-  </div>
-  <button class="session-start-btn" id="session-start-btn" onclick="startSession()">수업 시작</button>
-</div>
-
 <!-- Main -->
 <div class="main">
 
@@ -797,31 +806,22 @@
       <p class="sub">파란 점선 단어를 클릭하면 번역이 표시됩니다. (PDF 업로드 기능은 다음 단계에서 추가됩니다)</p>
       <div class="demo-text" id="demo-text"></div>
     </div>
+
+    <!-- 인라인 용어집 현황 -->
+    <div class="inline-stats hidden" id="inline-stats">
+      <span class="stat-chip">수학 용어 <strong>40</strong></span>
+      <span class="stat-chip">학습도구어 <strong>20</strong></span>
+      <span class="stat-chip">클릭한 단어 <strong id="stat-clicked">0</strong></span>
+      <span class="stat-chip">이번 단계 <strong id="stage-session-count">0</strong>/3차시</span>
+      <span class="stat-chip">누적 <strong id="total-session-count">0</strong>차시</span>
+    </div>
+
+    <!-- 수업 종료 버튼 -->
+    <button class="session-end-btn hidden" id="session-end-btn" onclick="openNoteModal()">수업 종료</button>
   </div>
 
   <!-- Right: side panel -->
   <div class="side-panel">
-
-    <!-- Stats -->
-    <div class="panel-card">
-      <div class="panel-card-header">📊 용어집 현황</div>
-      <div class="panel-card-body">
-        <div class="stats-row">
-          <div class="stat-box">
-            <div class="stat-num" id="stat-total">40</div>
-            <div class="stat-label">수학 용어</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-num" id="stat-inst">20</div>
-            <div class="stat-label">학습도구어</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-num" id="stat-clicked">0</div>
-            <div class="stat-label">클릭한 단어</div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Vocab search -->
     <div class="panel-card">
@@ -939,9 +939,6 @@ const STAGE_DESC = {
 };
 
 // ── Demo text ────────────────────────────────────────────────────
-// 각 문장: ko(어절 배열), en_full(영어 완전번역), de_full(독일어 완전번역)
-// ko 어절: { w:표시텍스트, vid?:vocabId, suffix?:조사 }
-// 2단계용 토큰: { t: 표시텍스트, vid?: 수학용어id (있으면 한국어로 교체) }
 const DEMO_SENTENCES = [
   {
     ko: [
@@ -952,7 +949,6 @@ const DEMO_SENTENCES = [
     ],
     en_full: "When two lines meet another line, the two angles in the same position are called corresponding angles.",
     de_full: "Wenn zwei Geraden eine andere Gerade schneiden, heißen die Winkel in gleicher Lage Stufenwinkel.",
-    // 2단계: 완전번역 문장에서 수학용어 자리만 한국어로 교체
     en_mix: [{t:"When two "},{t:"직선",vid:"geo_003"},{t:" meet another "},{t:"직선",vid:"geo_003"},{t:", the two "},{t:"각",vid:"geo_008"},{t:" in the same position are called "},{t:"동위각",vid:"geo_015"},{t:"."}],
     de_mix: [{t:"Wenn zwei "},{t:"직선",vid:"geo_003"},{t:" eine andere "},{t:"직선",vid:"geo_003"},{t:" schneiden, heißen die "},{t:"각",vid:"geo_008"},{t:" in gleicher Lage "},{t:"동위각",vid:"geo_015"},{t:"."}],
   },
@@ -1013,7 +1009,6 @@ const DEMO_SENTENCES = [
   },
 ];
 
-// vocab ID로 찾기
 function findVocabById(vid) {
   if (!vid) return null;
   return [...VOCAB.수학_용어, ...VOCAB.학습도구어].find(v => v.id === vid) || null;
@@ -1028,7 +1023,6 @@ function renderDemoText() {
     const p = document.createElement('p');
     p.style.marginBottom = '8px';
 
-    // 1단계: 완전번역 문장을 통째로 표시
     if (currentStage === 1) {
       const span = document.createElement('span');
       span.textContent = sentence[currentLang + '_full'];
@@ -1037,7 +1031,6 @@ function renderDemoText() {
       return;
     }
 
-    // 2단계: 번역문장 + 수학용어만 한국어로
     if (currentStage === 2) {
       const mixTokens = sentence[currentLang + '_mix'];
       mixTokens.forEach(token => {
@@ -1056,7 +1049,6 @@ function renderDemoText() {
       return;
     }
 
-    // 2~4단계: 어절 단위 토큰으로 표시
     sentence.ko.forEach((token, wi) => {
       const vocab = findVocabById(token.vid);
       const isMathTerm = vocab && VOCAB.수학_용어.includes(vocab);
@@ -1070,16 +1062,13 @@ function renderDemoText() {
 
       let displayText;
       if (currentStage === 2) {
-        // 수학용어는 한국어 유지, 학습도구어만 번역
         if (isInstTerm) displayText = (vocab[currentLang] || token.w);
         else if (isMathTerm) displayText = vocab.ko + suffix;
         else displayText = token.w;
       } else if (currentStage === 3) {
-        // 수학용어만 번역 + 조사 한국어로 유지
         if (isMathTerm) displayText = (vocab[currentLang] || vocab.ko) + suffix;
         else displayText = token.w;
       } else {
-        // 4단계: 원문 그대로
         displayText = token.w;
       }
 
@@ -1193,7 +1182,6 @@ function filterUnit(btn, unit) {
 }
 
 function highlightVocab(ko) {
-  // 해당 단어 토큰에 잠깐 하이라이트
   document.querySelectorAll('.token').forEach(t => {
     if (t.dataset.word && t.dataset.word.startsWith(ko)) {
       t.style.background = 'var(--accent-light)';
@@ -1217,7 +1205,6 @@ async function initSupabase() {
 
     supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
-    // 기존 세션 확인
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
       await onLoginSuccess(session.user);
@@ -1225,13 +1212,14 @@ async function initSupabase() {
       showLoginOverlay();
     }
 
-    // 세션 변화 감지 (다른 탭 로그아웃 등)
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         await onLoginSuccess(session.user);
       } else if (event === 'SIGNED_OUT') {
         currentUser = null;
         document.getElementById('user-info').classList.add('hidden');
+        document.getElementById('inline-stats').classList.add('hidden');
+        document.getElementById('session-end-btn').classList.add('hidden');
         showLoginOverlay();
       }
     });
@@ -1251,7 +1239,7 @@ async function onLoginSuccess(user) {
 async function loadStudentData(userId) {
   const { data } = await supabaseClient
     .from('students')
-    .select('name, current_stage, session_count, stage_session_count')
+    .select('name, current_stage, session_count, stage_session_count, last_attended_date')
     .eq('id', userId)
     .single();
 
@@ -1260,20 +1248,66 @@ async function loadStudentData(userId) {
     sessionCount = data.session_count || 0;
     stageSessionCount = data.stage_session_count || 0;
     updateSessionDisplay();
+
+    const today = new Date().toISOString().slice(0, 10);
+    if (data.last_attended_date !== today) {
+      await autoCountSession(today);
+    }
   }
 
   document.getElementById('user-name').textContent = (data && data.name) ? data.name : currentUser.email;
   document.getElementById('user-info').classList.remove('hidden');
-  document.getElementById('session-bar').classList.remove('hidden');
+  document.getElementById('inline-stats').classList.remove('hidden');
+  document.getElementById('session-end-btn').classList.remove('hidden');
+}
+
+async function autoCountSession(today) {
+  const newSessionCount = sessionCount + 1;
+  let newStage = currentStage;
+  let newStageSessionCount;
+  let stageAdvanced = false;
+
+  if (stageSessionCount >= 3 && currentStage < 4) {
+    newStage = currentStage + 1;
+    newStageSessionCount = 1;
+    stageAdvanced = true;
+  } else {
+    newStageSessionCount = stageSessionCount + 1;
+  }
+
+  const { error } = await supabaseClient
+    .from('students')
+    .upsert({
+      id: currentUser.id,
+      current_stage: newStage,
+      session_count: newSessionCount,
+      stage_session_count: newStageSessionCount,
+      last_attended_date: today,
+      updated_at: new Date().toISOString()
+    });
+
+  if (error) {
+    showToast(`저장 오류: ${error.message}`, true);
+    return;
+  }
+
+  sessionCount = newSessionCount;
+  stageSessionCount = newStageSessionCount;
+  updateSessionDisplay();
+
+  if (stageAdvanced) {
+    setStage(newStage, false);
+    showToast(`단계가 올라갔어요! 이제 ${newStage}단계예요 🎉`);
+  } else {
+    showToast('오늘 수업을 시작했어요 👋');
+  }
 }
 
 async function saveStageToDb(stage, newStageSessionCount) {
   if (!supabaseClient || !currentUser) return;
   const payload = { id: currentUser.id, current_stage: stage, updated_at: new Date().toISOString() };
   if (newStageSessionCount !== undefined) payload.stage_session_count = newStageSessionCount;
-  await supabaseClient
-    .from('students')
-    .upsert(payload);
+  await supabaseClient.from('students').upsert(payload);
 }
 
 async function doLogin() {
@@ -1299,64 +1333,49 @@ async function doLogout() {
   await supabaseClient.auth.signOut();
 }
 
-// ── 수업 시작 / 자동 페이딩 ──────────────────────────────────────
+// ── 수업 종료 / 노트 모달 ────────────────────────────────────────
+
+function openNoteModal() {
+  if (!supabaseClient || !currentUser) return;
+  document.getElementById('note-text').value = '';
+  document.getElementById('note-modal').classList.remove('hidden');
+}
+
+function closeNoteModal() {
+  document.getElementById('note-modal').classList.add('hidden');
+}
+
+async function saveNote() {
+  const noteText = document.getElementById('note-text').value.trim();
+  const saveBtn = document.getElementById('note-save-btn');
+  const today = new Date().toISOString().slice(0, 10);
+
+  saveBtn.disabled = true;
+
+  const { error } = await supabaseClient
+    .from('session_notes')
+    .insert({
+      student_id: currentUser.id,
+      date: today,
+      note_text: noteText,
+      stage: currentStage
+    });
+
+  saveBtn.disabled = false;
+  closeNoteModal();
+
+  if (!error) {
+    showToast(`수고했어요! 오늘 ${sessionCount}차시 완료 🎉`);
+  } else {
+    showToast(`메모 저장 오류: ${error.message}`, true);
+  }
+}
+
+// ── 카운터 표시 ──────────────────────────────────────────────────
 
 function updateSessionDisplay() {
   document.getElementById('stage-session-count').textContent = stageSessionCount;
   document.getElementById('total-session-count').textContent = sessionCount;
-}
-
-async function startSession() {
-  if (!supabaseClient || !currentUser) {
-    showToast('로그인 상태를 확인해주세요', true);
-    return;
-  }
-
-  const btn = document.getElementById('session-start-btn');
-  btn.disabled = true;
-
-  const newSessionCount = sessionCount + 1;
-  let newStage = currentStage;
-  let newStageSessionCount;
-  let stageAdvanced = false;
-
-  // 현재 단계에서 3차시 이상이고 최고 단계(4)가 아니면 자동 전환
-  if (stageSessionCount >= 3 && currentStage < 4) {
-    newStage = currentStage + 1;
-    newStageSessionCount = 1;
-    stageAdvanced = true;
-  } else {
-    newStageSessionCount = stageSessionCount + 1;
-  }
-
-  const { error } = await supabaseClient
-    .from('students')
-    .upsert({
-      id: currentUser.id,
-      current_stage: newStage,
-      session_count: newSessionCount,
-      stage_session_count: newStageSessionCount,
-      updated_at: new Date().toISOString()
-    });
-
-  if (error) {
-    showToast(`저장 오류: ${error.message}`, true);
-    btn.disabled = false;
-    return;
-  }
-
-  sessionCount = newSessionCount;
-  stageSessionCount = newStageSessionCount;
-  updateSessionDisplay();
-
-  if (stageAdvanced) {
-    setStage(newStage, false);
-    showToast(`단계가 올라갔어요! 이제 ${newStage}단계예요 🎉`);
-  } else {
-    showToast('오늘 수업을 시작했어요 👋');
-  }
-
-  btn.disabled = false;
 }
 
 // ── 토스트 ───────────────────────────────────────────────────────
@@ -1388,13 +1407,16 @@ function hideLoginOverlay() {
 renderDemoText();
 renderVocabList();
 
-// Enter 키로 로그인
 document.getElementById('login-password').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') doLogin();
 });
 document.getElementById('login-email').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('login-password').focus();
 });
+
+if (screen.orientation && screen.orientation.lock) {
+  screen.orientation.lock('portrait').catch(() => {});
+}
 
 initSupabase();
 </script>

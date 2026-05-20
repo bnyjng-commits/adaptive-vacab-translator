@@ -45,11 +45,14 @@
 
 ```
 adaptive-vacab-translator/
-  ├── CLAUDE.md                  ← 이 파일 (수정 금지)
+  ├── CLAUDE.md                  ← 이 파일 (규칙 외 수정 금지)
   ├── 작업지시서.md               ← 개발 명세 (수정 금지)
   ├── index.html                 ← 메인 웹앱 (기존 파일 기반으로 확장)
   ├── math_vocab_geometry.json   ← 용어집 (내용 수정 금지)
+  ├── api/
+  │   └── config.js              ← Vercel 서버리스 함수 (환경변수 클라이언트 전달)
   ├── .env                       ← 로컬 환경변수 (gitignore 대상, 커밋 금지)
+  ├── .env.example               ← 환경변수 형식 안내 (실제 값 없음)
   ├── .gitignore                 ← .env 반드시 포함
   └── README.md                  ← 배포/실행/계정등록 방법
 ```
@@ -78,7 +81,7 @@ adaptive-vacab-translator/
 - `<!DOCTYPE html>`, `<meta charset="UTF-8">`, viewport 메타태그 필수
 - 인라인 스타일(`style=""`) 사용 **금지** → CSS 변수와 class만 사용
 - 기존 CSS 변수 체계 유지 (아래 참고)
-- 태블릿 우선 반응형. breakpoint 기준: `720px`
+- 태블릿 우선 반응형. breakpoint 기준: `900px` (중간), `720px` (모바일)
 
 **기존 CSS 변수 (변경 금지)**
 ```css
@@ -141,13 +144,46 @@ adaptive-vacab-translator/
 
 | 컬럼 | 타입 | 기본값 | 설명 |
 |------|------|--------|------|
-| `id` | uuid | — | Supabase Auth UID |
+| `id` | uuid | — | Supabase Auth UID (PK) |
 | `name` | text | — | 학생 이름 |
 | `role` | text | `'student'` | `'student'` 또는 `'teacher'` |
 | `current_stage` | int | `1` | 현재 번역 단계 (1~4) |
 | `session_count` | int | `0` | 누적 차시 수 |
 | `stage_session_count` | int | `0` | 현재 단계 연속 차시 수 |
 | `updated_at` | timestamp | now() | 마지막 업데이트 |
+
+> ⚠️ **컬럼명 주의** — JS 변수명과 DB 컬럼명이 다름
+
+| JS 변수명 | Supabase 컬럼명 | 혼동 주의 |
+|-----------|----------------|-----------|
+| `currentStage` | `current_stage` | JS는 camelCase |
+| `currentUser.id` | `id` | `user_id` 아님 |
+| `stageSessionCount` | `stage_session_count` | 동일 |
+| `sessionCount` | `session_count` | 동일 |
+
+### Supabase 쿼리 패턴 (확정)
+
+```javascript
+// 조회
+await supabaseClient
+  .from('students')
+  .select('name, current_stage, session_count, stage_session_count')
+  .eq('id', userId)
+  .single();
+
+// 저장 — update 대신 upsert 사용 (첫 로그인 학생에게 행이 없어서 update는 동작 안 함)
+await supabaseClient
+  .from('students')
+  .upsert({ id: currentUser.id, current_stage: ..., updated_at: new Date().toISOString() });
+```
+
+### RLS 정책 (필수)
+
+```sql
+create policy "본인 조회" on public.students for select using (auth.uid() = id);
+create policy "본인 삽입" on public.students for insert with check (auth.uid() = id);
+create policy "본인 수정" on public.students for update using (auth.uid() = id);
+```
 
 ---
 
@@ -159,3 +195,29 @@ adaptive-vacab-translator/
 4. 오류가 나면 다음 마일스톤으로 넘어가지 않고 해당 마일스톤 안에서 해결한다
 
 **순서:** MVP(v0.1) → v0.2 → v0.3 → v0.4 → v0.5 → v1.0.0
+
+---
+
+## 9. 개발 현황 (2026-05-20 기준)
+
+| 버전 | 내용 | 상태 |
+|------|------|------|
+| v0.1 | 로그인 + 단계 저장 | ✅ 완료 |
+| v0.2 | 자동 페이딩 로직 | ✅ 완료 |
+| v0.3 | PDF 업로드 + 텍스트 레이어 | 🔧 다음 |
+| v0.4 | Claude API 연결 | 🔜 예정 |
+| v0.5 | 교사 화면 | 🔜 예정 |
+| v1.0.0 | 안정화 + 현장 테스트 준비 | 🔜 예정 |
+
+### v0.2에서 구현된 기능 (참고용)
+- 수업 시작 바: "이번 단계 X/3차시" + "누적 N차시" + 수업 시작 버튼
+- 3차시 연속 → 다음 수업 시작 시 단계 자동 +1, `stage_session_count` 1로 초기화
+- 수동 단계 변경 시 `stage_session_count` 0 초기화
+- 저장 실패 시 빨간 에러 토스트 (5초), 성공 시 어두운 토스트 (3초)
+- 900px 중간 브레이크포인트, 720px 이하 수업 정보 숨김
+
+### v0.3 구현 예정 기능
+- PDF 업로드 버튼 (파일 선택)
+- pdf.js (Mozilla CDN) 로 페이지별 이미지 렌더링
+- 이미지 위 투명 텍스트 레이어 오버레이
+- `math_vocab_geometry.json` 용어 → 점선 밑줄 + 클릭 툴팁
