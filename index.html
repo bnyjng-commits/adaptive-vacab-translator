@@ -1375,11 +1375,15 @@ async function saveNote() {
   saveBtn.disabled = false;
   closeNoteModal();
 
-  if (!error) {
-    showToast(`수고했어요! 오늘 ${sessionCount}차시 완료 🎉`);
-  } else {
+  if (error) {
     showToast(`메모 저장 오류: ${error.message}`, true);
+    return;
   }
+
+  showToast(`수고했어요! 오늘 ${sessionCount}차시 완료 🎉`);
+  setTimeout(async () => {
+    await supabaseClient.auth.signOut();
+  }, 3000);
 }
 
 // ── 카운터 표시 ──────────────────────────────────────────────────
