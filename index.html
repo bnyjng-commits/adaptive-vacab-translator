@@ -6,6 +6,7 @@
 <meta name="screen-orientation" content="portrait">
 <title>교과 용어 번역 도우미</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -737,6 +738,166 @@
     border-color: #c0392b;
     color: #c0392b;
   }
+
+  /* ── PDF 섹션 ── */
+  .pdf-section { margin-bottom: 24px; }
+
+  .pdf-upload-area {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px 20px;
+    text-align: center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .pdf-upload-area:hover {
+    border-color: var(--accent2);
+    background: var(--accent-light);
+  }
+
+  .pdf-upload-area.hidden { display: none; }
+
+  .pdf-upload-icon { font-size: 36px; margin-bottom: 10px; }
+
+  .pdf-upload-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 6px;
+  }
+
+  .pdf-upload-sub {
+    font-size: 13px;
+    color: var(--text-sub);
+    margin-bottom: 16px;
+  }
+
+  .pdf-upload-btn {
+    padding: 10px 24px;
+    min-height: 44px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .pdf-upload-btn:hover { background: var(--accent2); }
+
+  .pdf-viewer {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .pdf-viewer.hidden { display: none; }
+
+  .pdf-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    flex-wrap: wrap;
+  }
+
+  .pdf-nav-btn {
+    padding: 6px 14px;
+    min-height: 36px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-sub);
+  }
+
+  .pdf-nav-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .pdf-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .pdf-page-info {
+    font-size: 13px;
+    color: var(--text-sub);
+    min-width: 60px;
+    text-align: center;
+  }
+
+  .pdf-reload-btn {
+    padding: 6px 12px;
+    min-height: 36px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-light);
+    margin-left: auto;
+    transition: all 0.15s;
+  }
+
+  .pdf-reload-btn:hover {
+    border-color: var(--text-sub);
+    color: var(--text-sub);
+  }
+
+  .pdf-canvas-wrap {
+    background: #525659;
+    padding: 16px;
+    overflow: auto;
+    text-align: center;
+    max-height: 72vh;
+  }
+
+  .pdf-canvas-inner {
+    display: inline-block;
+    position: relative;
+  }
+
+  #pdf-canvas { display: block; }
+
+  .pdf-text-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .pdf-text-layer span {
+    position: absolute;
+    color: transparent;
+    white-space: pre;
+    cursor: default;
+    transform-origin: 0% 0%;
+    line-height: 1;
+  }
+
+  .pdf-text-layer span.has-vocab {
+    border-bottom: 1.5px dotted var(--accent2);
+    pointer-events: all;
+    cursor: pointer;
+  }
+
+  .pdf-text-layer span.has-vocab:hover {
+    background: rgba(64, 145, 108, 0.12);
+    border-radius: 2px;
+  }
 </style>
 </head>
 <body>
@@ -811,10 +972,36 @@
 
   <!-- Content column -->
   <div class="content-col">
+
+    <!-- PDF 섹션 -->
+    <div class="pdf-section">
+      <input type="file" id="pdf-input" accept=".pdf" hidden>
+      <div class="pdf-upload-area" id="pdf-upload-area">
+        <div class="pdf-upload-icon">📄</div>
+        <p class="pdf-upload-title">교과서 PDF 업로드</p>
+        <p class="pdf-upload-sub">파일을 선택하면 텍스트 레이어를 자동으로 생성합니다</p>
+        <button class="pdf-upload-btn" type="button" onclick="document.getElementById('pdf-input').click()">파일 선택</button>
+      </div>
+      <div class="pdf-viewer hidden" id="pdf-viewer">
+        <div class="pdf-toolbar">
+          <button class="pdf-nav-btn" id="pdf-prev" onclick="changePdfPage(-1)" disabled>◀ 이전</button>
+          <span class="pdf-page-info" id="pdf-page-info">1 / 1</span>
+          <button class="pdf-nav-btn" id="pdf-next" onclick="changePdfPage(1)" disabled>다음 ▶</button>
+          <button class="pdf-reload-btn" type="button" onclick="document.getElementById('pdf-input').click()">다른 파일</button>
+        </div>
+        <div class="pdf-canvas-wrap" id="pdf-canvas-wrap">
+          <div class="pdf-canvas-inner">
+            <canvas id="pdf-canvas"></canvas>
+            <div class="pdf-text-layer" id="pdf-text-layer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Demo text -->
     <div class="demo-section">
-      <h2>📖 교과서 본문 미리보기</h2>
-      <p class="sub">파란 점선 단어를 클릭하면 번역이 표시됩니다. (PDF 업로드 기능은 다음 단계에서 추가됩니다)</p>
+      <h2>📖 데모 텍스트</h2>
+      <p class="sub">파란 점선 단어를 클릭하면 번역이 표시됩니다.</p>
       <div class="demo-text" id="demo-text"></div>
     </div>
 
@@ -1418,6 +1605,105 @@ function hideLoginOverlay() {
   document.getElementById('login-overlay').classList.add('hidden');
 }
 
+// ── PDF 뷰어 ─────────────────────────────────────────────────────
+
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+
+let pdfDoc = null;
+let currentPdfPage = 1;
+let totalPdfPages = 0;
+
+async function onPdfFileSelected(e) {
+  const file = e.target.files[0];
+  if (!file || file.type !== 'application/pdf') return;
+  await loadPdf(file);
+}
+
+async function loadPdf(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  totalPdfPages = pdfDoc.numPages;
+  currentPdfPage = 1;
+
+  document.getElementById('pdf-upload-area').classList.add('hidden');
+  document.getElementById('pdf-viewer').classList.remove('hidden');
+
+  await renderPdfPage(1);
+}
+
+async function renderPdfPage(pageNum) {
+  const page = await pdfDoc.getPage(pageNum);
+
+  // 컨테이너 너비에 맞게 스케일 자동 계산
+  const wrap = document.getElementById('pdf-canvas-wrap');
+  const maxWidth = wrap.clientWidth - 32;
+  const base = page.getViewport({ scale: 1 });
+  const scale = Math.min(maxWidth / base.width, 1.8);
+  const viewport = page.getViewport({ scale });
+
+  const canvas = document.getElementById('pdf-canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+  const textContent = await page.getTextContent();
+  renderPdfTextLayer(textContent, viewport);
+
+  document.getElementById('pdf-page-info').textContent = `${pageNum} / ${totalPdfPages}`;
+  document.getElementById('pdf-prev').disabled = pageNum <= 1;
+  document.getElementById('pdf-next').disabled = pageNum >= totalPdfPages;
+}
+
+function renderPdfTextLayer(textContent, viewport) {
+  const layer = document.getElementById('pdf-text-layer');
+  layer.innerHTML = '';
+
+  const canvas = document.getElementById('pdf-canvas');
+  layer.style.width = canvas.width + 'px';
+  layer.style.height = canvas.height + 'px';
+
+  // 긴 용어 우선 매칭되도록 길이 내림차순 정렬
+  const allVocab = [...VOCAB.수학_용어, ...VOCAB.학습도구어]
+    .sort((a, b) => b.ko.length - a.ko.length);
+
+  textContent.items.forEach(item => {
+    if (!item.str.trim()) return;
+
+    const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+    const angle = Math.atan2(tx[1], tx[0]);
+    const fontHeight = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+
+    const span = document.createElement('span');
+    span.textContent = item.str;
+    span.style.left = tx[4] + 'px';
+    span.style.top = (tx[5] - fontHeight) + 'px';
+    span.style.fontSize = fontHeight + 'px';
+    if (angle !== 0) span.style.transform = `rotate(${angle}rad)`;
+
+    const matched = allVocab.find(v => item.str.includes(v.ko));
+    if (matched) {
+      span.classList.add('has-vocab');
+      span.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onTokenClick(e, matched, matched.ko);
+      });
+    }
+
+    layer.appendChild(span);
+  });
+}
+
+async function changePdfPage(delta) {
+  const next = currentPdfPage + delta;
+  if (next < 1 || next > totalPdfPages) return;
+  currentPdfPage = next;
+  await renderPdfPage(currentPdfPage);
+}
+
 // ── Init ─────────────────────────────────────────────────────────
 renderDemoText();
 renderVocabList();
@@ -1432,6 +1718,8 @@ document.getElementById('login-email').addEventListener('keydown', (e) => {
 if (screen.orientation && screen.orientation.lock) {
   screen.orientation.lock('portrait').catch(() => {});
 }
+
+document.getElementById('pdf-input').addEventListener('change', onPdfFileSelected);
 
 initSupabase();
 </script>
