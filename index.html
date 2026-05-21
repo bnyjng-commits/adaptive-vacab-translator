@@ -1684,7 +1684,7 @@ function renderPdfTextLayer(textContent, viewport) {
     span.style.fontSize = fontHeight + 'px';
     if (angle !== 0) span.style.transform = `rotate(${angle}rad)`;
 
-    const matched = allVocab.find(v => item.str.includes(v.ko));
+    const matched = findVocabAtWordBoundary(item.str, allVocab);
     if (matched) {
       // 용어 부분만 밑줄 — 인라인 span으로 분리해 정확히 해당 글자만 표시
       splitTextByVocab(item.str, matched.ko).forEach(part => {
@@ -1709,19 +1709,39 @@ function renderPdfTextLayer(textContent, viewport) {
   });
 }
 
+// 어절 시작(공백 직후 또는 문자열 처음)에서만 용어 매칭
+function findVocabAtWordBoundary(str, allVocab) {
+  for (const vocab of allVocab) {
+    if (vocabWordStartIdx(str, vocab.ko) !== -1) return vocab;
+  }
+  return null;
+}
+
+// 어절 시작 위치의 인덱스 반환 (-1: 없음)
+function vocabWordStartIdx(str, vocabKo) {
+  let pos = str.indexOf(vocabKo);
+  while (pos !== -1) {
+    if (pos === 0 || str[pos - 1] === ' ') return pos;
+    pos = str.indexOf(vocabKo, pos + 1);
+  }
+  return -1;
+}
+
+// 어절 경계 기준으로 텍스트를 용어/일반 파트로 분리
 function splitTextByVocab(str, vocabKo) {
   const parts = [];
-  let remaining = str;
+  let offset = 0;
 
-  while (remaining.length > 0) {
-    const idx = remaining.indexOf(vocabKo);
+  while (offset < str.length) {
+    const sliced = str.slice(offset);
+    const idx = vocabWordStartIdx(sliced, vocabKo);
     if (idx === -1) {
-      parts.push({ text: remaining, isVocab: false });
+      parts.push({ text: sliced, isVocab: false });
       break;
     }
-    if (idx > 0) parts.push({ text: remaining.slice(0, idx), isVocab: false });
+    if (idx > 0) parts.push({ text: sliced.slice(0, idx), isVocab: false });
     parts.push({ text: vocabKo, isVocab: true });
-    remaining = remaining.slice(idx + vocabKo.length);
+    offset += idx + vocabKo.length;
   }
 
   return parts;
