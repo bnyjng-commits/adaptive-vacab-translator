@@ -888,13 +888,14 @@
     line-height: 1;
   }
 
-  .pdf-text-layer span.has-vocab {
+  .has-vocab-inner {
     border-bottom: 1.5px dotted var(--accent2);
     pointer-events: all;
     cursor: pointer;
+    touch-action: manipulation;
   }
 
-  .pdf-text-layer span.has-vocab:hover {
+  .has-vocab-inner:hover {
     background: rgba(64, 145, 108, 0.12);
     border-radius: 2px;
   }
@@ -1678,7 +1679,6 @@ function renderPdfTextLayer(textContent, viewport) {
     const fontHeight = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
 
     const span = document.createElement('span');
-    span.textContent = item.str;
     span.style.left = tx[4] + 'px';
     span.style.top = (tx[5] - fontHeight) + 'px';
     span.style.fontSize = fontHeight + 'px';
@@ -1686,15 +1686,45 @@ function renderPdfTextLayer(textContent, viewport) {
 
     const matched = allVocab.find(v => item.str.includes(v.ko));
     if (matched) {
-      span.classList.add('has-vocab');
-      span.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onTokenClick(e, matched, matched.ko);
+      // 용어 부분만 밑줄 — 인라인 span으로 분리해 정확히 해당 글자만 표시
+      splitTextByVocab(item.str, matched.ko).forEach(part => {
+        if (part.isVocab) {
+          const inner = document.createElement('span');
+          inner.className = 'has-vocab-inner';
+          inner.textContent = part.text;
+          inner.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onTokenClick(e, matched, matched.ko);
+          });
+          span.appendChild(inner);
+        } else {
+          span.appendChild(document.createTextNode(part.text));
+        }
       });
+    } else {
+      span.textContent = item.str;
     }
 
     layer.appendChild(span);
   });
+}
+
+function splitTextByVocab(str, vocabKo) {
+  const parts = [];
+  let remaining = str;
+
+  while (remaining.length > 0) {
+    const idx = remaining.indexOf(vocabKo);
+    if (idx === -1) {
+      parts.push({ text: remaining, isVocab: false });
+      break;
+    }
+    if (idx > 0) parts.push({ text: remaining.slice(0, idx), isVocab: false });
+    parts.push({ text: vocabKo, isVocab: true });
+    remaining = remaining.slice(idx + vocabKo.length);
+  }
+
+  return parts;
 }
 
 async function changePdfPage(delta) {
