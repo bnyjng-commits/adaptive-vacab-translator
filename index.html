@@ -899,6 +899,40 @@
     background: rgba(64, 145, 108, 0.12);
     border-radius: 2px;
   }
+
+  .pdf-text-layer span.pdf-span-clickable {
+    pointer-events: all;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .pdf-text-layer span.pdf-span-clickable:hover {
+    background: rgba(64, 145, 108, 0.08);
+    border-radius: 2px;
+  }
+
+  /* ── 단계별 번역 배지 ── */
+  .vocab-translation-badge {
+    position: absolute;
+    background: var(--accent);
+    color: white;
+    font-size: 9px;
+    line-height: 1.4;
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 2;
+    display: none;
+  }
+
+  /* 단계 1: 모든 배지 표시 */
+  .pdf-text-layer[data-stage="1"] .vocab-translation-badge { display: block; }
+  /* 단계 2: 학습도구어(inst) 배지만 표시, 수학 용어는 한국어 유지 */
+  .pdf-text-layer[data-stage="2"] .vocab-translation-badge.inst-badge { display: block; }
+  /* 단계 3: 수학 용어(math) 배지만 표시 */
+  .pdf-text-layer[data-stage="3"] .vocab-translation-badge.math-badge { display: block; }
+  /* 단계 4: 배지 없음 (기본값 display:none 적용) */
 </style>
 </head>
 <body>
@@ -1331,6 +1365,7 @@ function setLang(lang) {
   });
   renderDemoText();
   renderVocabList();
+  rerenderPdfTextOnly();
 }
 
 function setStage(stage, saveToDb = true) {
@@ -1340,6 +1375,7 @@ function setStage(stage, saveToDb = true) {
   });
   document.getElementById('stage-desc').textContent = STAGE_DESC[stage];
   renderDemoText();
+  rerenderPdfTextOnly();
   if (saveToDb && currentUser) {
     stageSessionCount = 0;
     updateSessionDisplay();
@@ -1616,6 +1652,15 @@ if (typeof pdfjsLib !== 'undefined') {
 let pdfDoc = null;
 let currentPdfPage = 1;
 let totalPdfPages = 0;
+let lastTextContent = null;
+let lastViewport = null;
+
+// 캔버스 재렌더 없이 텍스트 레이어만 다시 그림 (단계·언어 변경 시 사용)
+function rerenderPdfTextOnly() {
+  if (lastTextContent && lastViewport) {
+    renderPdfTextLayer(lastTextContent, lastViewport);
+  }
+}
 
 async function onPdfFileSelected(e) {
   const file = e.target.files[0];
@@ -1652,6 +1697,8 @@ async function renderPdfPage(pageNum) {
   await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
 
   const textContent = await page.getTextContent();
+  lastTextContent = textContent;
+  lastViewport = viewport;
   renderPdfTextLayer(textContent, viewport);
 
   document.getElementById('pdf-page-info').textContent = `${pageNum} / ${totalPdfPages}`;
@@ -1662,6 +1709,7 @@ async function renderPdfPage(pageNum) {
 function renderPdfTextLayer(textContent, viewport) {
   const layer = document.getElementById('pdf-text-layer');
   layer.innerHTML = '';
+  layer.dataset.stage = currentStage;
 
   const canvas = document.getElementById('pdf-canvas');
   layer.style.width = canvas.width + 'px';
@@ -1701,8 +1749,29 @@ function renderPdfTextLayer(textContent, viewport) {
           span.appendChild(document.createTextNode(part.text));
         }
       });
+
+      // 단계별 번역 배지 — 용어 위치에 절대좌표로 배치, CSS data-stage로 표시 제어
+      const isMathTerm = VOCAB.수학_용어.includes(matched);
+      const badge = document.createElement('span');
+      badge.className = `vocab-translation-badge ${isMathTerm ? 'math-badge' : 'inst-badge'}`;
+      badge.textContent = matched[currentLang] || '—';
+      badge.style.left = tx[4] + 'px';
+      badge.style.top = (tx[5] - fontHeight) + 'px';
+      badge.style.transform = angle !== 0
+        ? `rotate(${angle}rad) translateY(-100%)`
+        : 'translateY(-100%)';
+      layer.appendChild(badge);
     } else {
       span.textContent = item.str;
+      // 한국어 글자가 포함된 텍스트 아이템만 Claude API 클릭 대상으로 설정
+      const cleanWord = item.str.trim().replace(/^[\s.,!?;:()「」『』【】]+|[\s.,!?;:()「」『』【】]+$/g, '');
+      if (/[가-힣]/.test(cleanWord) && cleanWord.length >= 1) {
+        span.classList.add('pdf-span-clickable');
+        span.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showClaudeTooltip(e, cleanWord);
+        });
+      }
     }
 
     layer.appendChild(span);
@@ -1752,6 +1821,40 @@ async function changePdfPage(delta) {
   if (next < 1 || next > totalPdfPages) return;
   currentPdfPage = next;
   await renderPdfPage(currentPdfPage);
+}
+
+// ── Claude API 번역 (용어집 미등록 단어용) ────────────────────────
+
+async function callClaudeTranslate(word, lang) {
+  const res = await fetch('/api/translate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ word, lang })
+  });
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  return await res.json();
+}
+
+async function showClaudeTooltip(e, word) {
+  const tt = document.getElementById('tooltip');
+  document.getElementById('tt-ko').textContent = word;
+  document.getElementById('tt-trans').textContent = '번역 중...';
+  const defEl = document.getElementById('tt-def');
+  defEl.textContent = '';
+  defEl.style.display = 'none';
+  tt.classList.add('visible');
+  positionTooltip(e);
+
+  try {
+    const { translation, definition } = await callClaudeTranslate(word, currentLang);
+    document.getElementById('tt-trans').textContent = translation || '—';
+    if (definition) {
+      defEl.textContent = definition;
+      defEl.style.display = 'block';
+    }
+  } catch {
+    document.getElementById('tt-trans').textContent = '번역을 불러올 수 없습니다';
+  }
 }
 
 // ── Init ─────────────────────────────────────────────────────────
