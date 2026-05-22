@@ -911,28 +911,19 @@
     border-radius: 2px;
   }
 
-  /* ── 단계별 번역 배지 ── */
-  .vocab-translation-badge {
-    position: absolute;
-    background: var(--accent);
-    color: white;
-    font-size: 9px;
-    line-height: 1.4;
-    padding: 1px 5px;
-    border-radius: 3px;
-    white-space: nowrap;
-    pointer-events: none;
-    z-index: 2;
-    display: none;
+  /* ── 번역어로 교체된 용어 (단계 1~3에서 사용) ── */
+  .has-vocab-translated {
+    color: var(--accent2);
+    background: var(--surface);
+    border-bottom: 1.5px solid var(--accent2);
+    border-radius: 2px;
+    padding: 0 1px;
+    pointer-events: all;
+    cursor: pointer;
+    touch-action: manipulation;
   }
 
-  /* 단계 1: 모든 배지 표시 */
-  .pdf-text-layer[data-stage="1"] .vocab-translation-badge { display: block; }
-  /* 단계 2: 학습도구어(inst) 배지만 표시, 수학 용어는 한국어 유지 */
-  .pdf-text-layer[data-stage="2"] .vocab-translation-badge.inst-badge { display: block; }
-  /* 단계 3: 수학 용어(math) 배지만 표시 */
-  .pdf-text-layer[data-stage="3"] .vocab-translation-badge.math-badge { display: block; }
-  /* 단계 4: 배지 없음 (기본값 display:none 적용) */
+  .has-vocab-translated:hover { background: var(--accent-light); }
 </style>
 </head>
 <body>
@@ -1709,8 +1700,6 @@ async function renderPdfPage(pageNum) {
 function renderPdfTextLayer(textContent, viewport) {
   const layer = document.getElementById('pdf-text-layer');
   layer.innerHTML = '';
-  layer.dataset.stage = currentStage;
-
   const canvas = document.getElementById('pdf-canvas');
   layer.style.width = canvas.width + 'px';
   layer.style.height = canvas.height + 'px';
@@ -1734,12 +1723,25 @@ function renderPdfTextLayer(textContent, viewport) {
 
     const matched = findVocabAtWordBoundary(item.str, allVocab);
     if (matched) {
-      // 용어 부분만 밑줄 — 인라인 span으로 분리해 정확히 해당 글자만 표시
+      const isMathTerm = VOCAB.수학_용어.includes(matched);
+      // 현재 단계에서 이 용어를 번역어로 교체할지 결정
+      const shouldTranslate =
+        currentStage === 1 ||
+        (currentStage === 2 && !isMathTerm) ||
+        (currentStage === 3 && isMathTerm);
+
       splitTextByVocab(item.str, matched.ko).forEach(part => {
         if (part.isVocab) {
           const inner = document.createElement('span');
-          inner.className = 'has-vocab-inner';
-          inner.textContent = part.text;
+          if (shouldTranslate) {
+            // 번역어로 교체: 배경으로 원문 덮고 번역어 표시
+            inner.className = 'has-vocab-translated';
+            inner.textContent = matched[currentLang] || matched.ko;
+          } else {
+            // 한국어 원문 유지 + 점선 밑줄
+            inner.className = 'has-vocab-inner';
+            inner.textContent = part.text;
+          }
           inner.addEventListener('click', (e) => {
             e.stopPropagation();
             onTokenClick(e, matched, matched.ko);
@@ -1749,18 +1751,6 @@ function renderPdfTextLayer(textContent, viewport) {
           span.appendChild(document.createTextNode(part.text));
         }
       });
-
-      // 단계별 번역 배지 — 용어 위치에 절대좌표로 배치, CSS data-stage로 표시 제어
-      const isMathTerm = VOCAB.수학_용어.includes(matched);
-      const badge = document.createElement('span');
-      badge.className = `vocab-translation-badge ${isMathTerm ? 'math-badge' : 'inst-badge'}`;
-      badge.textContent = matched[currentLang] || '—';
-      badge.style.left = tx[4] + 'px';
-      badge.style.top = (tx[5] - fontHeight) + 'px';
-      badge.style.transform = angle !== 0
-        ? `rotate(${angle}rad) translateY(-100%)`
-        : 'translateY(-100%)';
-      layer.appendChild(badge);
     } else {
       span.textContent = item.str;
       // 한국어 글자가 포함된 텍스트 아이템만 Claude API 클릭 대상으로 설정
