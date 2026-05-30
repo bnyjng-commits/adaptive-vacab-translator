@@ -1143,6 +1143,9 @@ const VOCAB_MAP = {};
   VOCAB_MAP[v.ko] = v;
 });
 
+// 한국어 조사 첫 글자 집합 (단어 경계 끝 확인용 — "구성하는"에서 "구" 오매칭 방지)
+const PARTICLE_FIRST_CHARS = new Set(['이', '가', '을', '를', '은', '는', '의', '와', '과', '로', '에']);
+
 // ── State ────────────────────────────────────────────────────────
 let currentLang = 'de';
 let currentStage = 1;
@@ -1645,6 +1648,7 @@ let currentPdfPage = 1;
 let totalPdfPages = 0;
 let lastTextContent = null;
 let lastViewport = null;
+let pdfRenderToken = 0;
 
 // 캔버스 재렌더 없이 텍스트 레이어만 다시 그림 (단계·언어 변경 시 사용)
 function rerenderPdfTextOnly() {
@@ -1706,6 +1710,9 @@ async function renderPdfPage(pageNum) {
 }
 
 function renderPdfTextLayer(textContent, viewport) {
+  pdfRenderToken++;
+  const renderToken = pdfRenderToken;
+
   const layer = document.getElementById('pdf-text-layer');
   layer.innerHTML = '';
   layer.style.width = viewport.width + 'px';
@@ -1714,6 +1721,9 @@ function renderPdfTextLayer(textContent, viewport) {
   // 긴 용어 우선 매칭되도록 길이 내림차순 정렬
   const allVocab = [...VOCAB.수학_용어, ...VOCAB.학습도구어]
     .sort((a, b) => b.ko.length - a.ko.length);
+
+  // 단계 1, 2에서 Claude API 일괄 번역 대기 목록
+  const batchQueue = [];
 
   textContent.items.forEach(item => {
     if (!item.str.trim()) return;
@@ -1741,11 +1751,9 @@ function renderPdfTextLayer(textContent, viewport) {
         if (part.isVocab) {
           const inner = document.createElement('span');
           if (shouldTranslate) {
-            // 번역어로 교체: 배경으로 원문 덮고 번역어 표시
             inner.className = 'has-vocab-translated';
             inner.textContent = matched[currentLang] || matched.ko;
           } else {
-            // 한국어 원문 유지 + 점선 밑줄
             inner.className = 'has-vocab-inner';
             inner.textContent = part.text;
           }
@@ -1760,9 +1768,13 @@ function renderPdfTextLayer(textContent, viewport) {
       });
     } else {
       span.textContent = item.str;
-      // 한국어 글자가 포함된 텍스트 아이템만 Claude API 클릭 대상으로 설정
       const cleanWord = item.str.trim().replace(/^[\s.,!?;:()「」『』【】]+|[\s.,!?;:()「」『』【】]+$/g, '');
-      if (/[가-힣]/.test(cleanWord) && cleanWord.length >= 1) {
+      const hasKorean = /[가-힣]/.test(cleanWord);
+
+      if (hasKorean && (currentStage === 1 || currentStage === 2)) {
+        // 배치 번역 대기 — 번역 완료 전까지 원문 유지
+        batchQueue.push({ span, text: item.str });
+      } else if (hasKorean) {
         span.classList.add('pdf-span-clickable');
         span.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1773,6 +1785,39 @@ function renderPdfTextLayer(textContent, viewport) {
 
     layer.appendChild(span);
   });
+
+  // 단계 1, 2: 비동기 일괄 번역 시작 (렌더 토큰으로 구버전 결과 무시)
+  if (batchQueue.length > 0) {
+    applyBatchTranslations(batchQueue, renderToken);
+  }
+}
+
+async function applyBatchTranslations(queue, renderToken) {
+  const texts = queue.map(({ text }) => text);
+  try {
+    const res = await fetch('/api/translate-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts, lang: currentLang })
+    });
+    // 새 렌더가 시작됐으면 결과 무시
+    if (renderToken !== pdfRenderToken || !res.ok) return;
+    const { translations } = await res.json();
+    if (renderToken !== pdfRenderToken) return;
+
+    queue.forEach(({ span }, i) => {
+      const translation = translations[i];
+      if (translation) {
+        span.textContent = '';
+        const inner = document.createElement('span');
+        inner.className = 'has-vocab-translated';
+        inner.textContent = translation;
+        span.appendChild(inner);
+      }
+    });
+  } catch {
+    // 실패 시 원문 유지
+  }
 }
 
 // 어절 시작(공백 직후 또는 문자열 처음)에서만 용어 매칭
@@ -1784,10 +1829,21 @@ function findVocabAtWordBoundary(str, allVocab) {
 }
 
 // 어절 시작 위치의 인덱스 반환 (-1: 없음)
+// 시작 조건: 문자열 처음이거나 앞이 공백
+// 끝 조건: 문자열 끝, 공백, 또는 조사 첫 글자 → "구성하는"에서 "구" 오매칭 방지
 function vocabWordStartIdx(str, vocabKo) {
   let pos = str.indexOf(vocabKo);
   while (pos !== -1) {
-    if (pos === 0 || str[pos - 1] === ' ') return pos;
+    const isWordStart = pos === 0 || str[pos - 1] === ' ';
+    if (isWordStart) {
+      const afterPos = pos + vocabKo.length;
+      const afterChar = str[afterPos];
+      const isWordEnd =
+        afterPos >= str.length ||
+        afterChar === ' ' ||
+        PARTICLE_FIRST_CHARS.has(afterChar);
+      if (isWordEnd) return pos;
+    }
     pos = str.indexOf(vocabKo, pos + 1);
   }
   return -1;
