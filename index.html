@@ -925,14 +925,27 @@
 
   .has-vocab-translated:hover { background: var(--accent-light); }
 
-  /* ── 단계 1: 문단별 번역 블록 ── */
+  /* ── 단계 1: 문단 hover 영역 ── */
+  .translation-paragraph-area {
+    position: absolute;
+    cursor: pointer;
+    border-radius: 4px;
+    z-index: 5;
+    transition: background 0.15s;
+  }
+
+  .translation-paragraph-area:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  /* ── 단계 1: 번역 블록 (클릭 후 표시) ── */
   .translation-block {
     position: absolute;
     background: rgba(255, 255, 255, 0.97);
     border-radius: 4px;
-    padding: 4px 20px 4px 8px;
+    padding: 4px 8px;
     font-family: 'Noto Sans KR', 'DM Sans', sans-serif;
-    font-size: 13px;
+    font-size: 9px;
     line-height: 1.6;
     color: var(--text-main);
     z-index: 10;
@@ -940,23 +953,6 @@
     word-break: break-word;
     box-sizing: border-box;
     cursor: pointer;
-  }
-
-  .translation-block-loading {
-    color: var(--text-sub);
-    font-style: italic;
-    cursor: default;
-  }
-
-  /* 토글 아이콘 (블록 오른쪽 상단 고정) */
-  .tb-icon {
-    position: absolute;
-    right: 4px;
-    top: 4px;
-    font-size: 10px;
-    color: var(--text-sub);
-    user-select: none;
-    line-height: 1;
   }
 </style>
 </head>
@@ -1683,6 +1679,7 @@ let totalPdfPages = 0;
 let lastTextContent = null;
 let lastViewport = null;
 let pdfRenderToken = 0;
+let translationCache = new Map(); // key: 원문+언어, value: 번역문
 
 // 캔버스 재렌더 없이 텍스트 레이어만 다시 그림 (단계·언어 변경 시 사용)
 function rerenderPdfTextOnly() {
@@ -1756,11 +1753,11 @@ function renderPdfTextLayer(textContent, viewport) {
   layer.style.width = viewport.width + 'px';
   layer.style.height = viewport.height + 'px';
 
-  // 단계 1: 텍스트 레이어 숨기고 span 위치 데이터를 이용해 문단별 번역 블록 표시
+  // 단계 1: 원문 표시 (레이어 투명 span 유지) + 문단 클릭 영역 설정
   if (currentStage === 1) {
-    layer.style.visibility = 'hidden';
+    layer.style.visibility = '';  // 레이어 복원 (canvas 원문 그대로 보임)
 
-    // 위치 추출용 span을 숨겨진 레이어에 추가 (getBoundingClientRect 사용)
+    // 위치 추출용 span — color:transparent이므로 canvas 원문에 영향 없음
     textContent.items.forEach(item => {
       if (!item.str.trim()) return;
       const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
@@ -1773,7 +1770,7 @@ function renderPdfTextLayer(textContent, viewport) {
       layer.appendChild(span);
     });
 
-    applyParagraphOverlayTranslation(layer, renderToken);
+    setupParagraphAreas(layer, renderToken);
     return;
   }
 
@@ -1853,91 +1850,21 @@ function renderPdfTextLayer(textContent, viewport) {
   }
 }
 
-// 기존 번역 블록 전체 제거 (단계 전환 시 호출)
+// 번역 관련 DOM 전체 제거 + 캐시 초기화 (단계·페이지 전환 시 호출)
 function cleanupPageOverlay() {
-  document.querySelectorAll('.pdf-page-translation-overlay, .translation-block')
+  document.querySelectorAll('.pdf-page-translation-overlay, .translation-block, .translation-paragraph-area')
     .forEach(el => el.remove());
+  translationCache.clear();
 }
 
-// .translation-block 텍스트 오버플로우 처리 (1단계 전용)
-// 우선순위: ① 기본 크기 → ② 폰트 축소(최소 9px) → ③ 높이 확장
-function fitTextInBlock(block, text) {
-  const DEFAULT_FONT = 13;
-  const MIN_FONT = 9;
-  const naturalHeight = parseFloat(block.dataset.naturalHeight);
-
-  block.textContent = text;
-  block.style.height   = naturalHeight + 'px';
-  block.style.overflow = 'hidden';
-  block.style.fontSize = DEFAULT_FONT + 'px';
-
-  // 폰트를 1px씩 줄이며 맞춤 시도
-  let fontSize = DEFAULT_FONT;
-  while (block.scrollHeight > block.clientHeight && fontSize > MIN_FONT) {
-    fontSize--;
-    block.style.fontSize = fontSize + 'px';
-  }
-
-  // 9px에서도 넘치면 높이를 최소한으로 확장 (너비는 유지)
-  if (block.scrollHeight > block.clientHeight) {
-    block.style.height = block.scrollHeight + 'px';
-  }
-}
-
-// 펼쳐진 상태: 페이지 오른쪽 끝까지 너비 확장, 줄바꿈 최소화
-function setBlockExpanded(block) {
-  const text = block.dataset.translationText || '';
-  const expandedWidth = parseFloat(block.dataset.expandedWidth);
-
-  block.dataset.collapsed = 'false';
-  block.style.width      = expandedWidth + 'px';
-  block.style.height     = '';
-  block.style.overflow   = '';
-  block.style.whiteSpace = 'normal';
-  block.style.fontSize   = '13px';
-
-  block.textContent = text;
-  const icon = document.createElement('span');
-  icon.className = 'tb-icon';
-  icon.textContent = '◀';
-  block.appendChild(icon);
-}
-
-// 접힌 상태: 원문 너비로 복귀, 폰트 축소 로직 적용
-function setBlockCollapsed(block) {
-  const text = block.dataset.translationText || '';
-  const naturalWidth = parseFloat(block.dataset.naturalWidth);
-
-  block.dataset.collapsed = 'true';
-  block.style.width      = naturalWidth + 'px';
-  block.style.whiteSpace = '';  // CSS pre-wrap 복원
-
-  fitTextInBlock(block, text);  // textContent 설정 + 높이 조정
-
-  const icon = document.createElement('span');
-  icon.className = 'tb-icon';
-  icon.textContent = '▶';
-  block.appendChild(icon);
-}
-
-// 펼침 ↔ 접힘 토글
-function toggleTranslationBlock(block) {
-  if (block.dataset.collapsed === 'true') {
-    setBlockExpanded(block);
-  } else {
-    setBlockCollapsed(block);
-  }
-}
-
-// 단계 1 전용: span 위치 기반으로 문단을 감지하고 번역 블록을 생성
-async function applyParagraphOverlayTranslation(layer, renderToken) {
+// 단계 1 전용: 문단을 감지하고 hover/클릭 영역(.translation-paragraph-area)을 생성
+function setupParagraphAreas(layer, renderToken) {
   const LINE_GAP_THRESHOLD = 10;
   const inner = document.querySelector('.pdf-canvas-inner');
   const innerRect = inner.getBoundingClientRect();
   const canvas = document.getElementById('pdf-canvas');
   const canvasRect = canvas.getBoundingClientRect();
 
-  // visibility:hidden 상태에서도 getBoundingClientRect는 정상 동작
   const spanData = [];
   layer.querySelectorAll('span').forEach(span => {
     const rect = span.getBoundingClientRect();
@@ -1951,10 +1878,8 @@ async function applyParagraphOverlayTranslation(layer, renderToken) {
     });
   });
 
-  // top → left 순으로 정렬
   spanData.sort((a, b) => a.top !== b.top ? a.top - b.top : a.left - b.left);
 
-  // y좌표 간격으로 문단 묶기
   const paragraphs = [];
   let cur = null;
   for (const d of spanData) {
@@ -1969,60 +1894,75 @@ async function applyParagraphOverlayTranslation(layer, renderToken) {
     }
   }
 
-  // 한국어가 포함된 문단만 번역 블록 생성
-  const blocks = [];
-  const texts  = [];
   for (const para of paragraphs) {
     const paraText = para.texts.join(' ');
     if (!/[가-힣]/.test(paraText)) continue;
 
-    const naturalWidth   = para.right - para.left;
-    const expandedWidth  = Math.max(
+    const expandedWidth = Math.max(
       canvasRect.right - innerRect.left - para.left - 8,
-      naturalWidth
+      para.right - para.left
     );
 
-    const block = document.createElement('div');
-    block.className = 'translation-block translation-block-loading';
-    block.style.top       = para.top  + 'px';
-    block.style.left      = para.left + 'px';
-    block.style.width     = naturalWidth + 'px';
-    block.style.minHeight = (para.bottom - para.top) + 'px';
-    block.dataset.naturalHeight  = para.bottom - para.top;
-    block.dataset.naturalWidth   = naturalWidth;
-    block.dataset.expandedWidth  = expandedWidth;
-    block.dataset.collapsed      = 'false';
-    block.textContent = '번역 중...';
-    block.addEventListener('click', () => toggleTranslationBlock(block));
-    inner.appendChild(block);
-    blocks.push(block);
-    texts.push(paraText);
+    const area = document.createElement('div');
+    area.className = 'translation-paragraph-area';
+    area.style.top    = para.top  + 'px';
+    area.style.left   = para.left + 'px';
+    area.style.width  = (para.right - para.left) + 'px';
+    area.style.height = (para.bottom - para.top) + 'px';
+    inner.appendChild(area);
+
+    area.addEventListener('click', () => {
+      onParagraphAreaClick(area, para, paraText, expandedWidth, renderToken);
+    });
+  }
+}
+
+// 문단 영역 클릭: 첫 클릭 시 번역 블록 생성·API 호출, 이후 클릭 시 토글
+async function onParagraphAreaClick(area, para, paraText, expandedWidth, renderToken) {
+  // 블록이 이미 생성된 경우 → 표시/숨김 토글
+  if (area._block) {
+    area._block.style.display = area._block.style.display === 'none' ? '' : 'none';
+    return;
   }
 
-  if (blocks.length === 0) return;
+  // 번역 블록 생성 (로딩 상태)
+  const inner = document.querySelector('.pdf-canvas-inner');
+  const block = document.createElement('div');
+  block.className = 'translation-block';
+  block.style.top   = para.top  + 'px';
+  block.style.left  = para.left + 'px';
+  block.style.width = expandedWidth + 'px';
+  block.textContent = '...';
+  inner.appendChild(block);
+  area._block = block;
 
+  // 블록 클릭 → 숨김 (area 재클릭으로 다시 표시)
+  block.addEventListener('click', () => { block.style.display = 'none'; });
+
+  // 캐시 확인 (언어 포함 키)
+  const cacheKey = paraText + '__' + currentLang;
+  if (translationCache.has(cacheKey)) {
+    block.textContent = translationCache.get(cacheKey);
+    return;
+  }
+
+  // API 호출 (문단 단위 1회)
   try {
     const res = await fetch('/api/translate-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts, lang: currentLang })
+      body: JSON.stringify({ texts: [paraText], lang: currentLang })
     });
-    if (renderToken !== pdfRenderToken || !res.ok) return;
+    if (renderToken !== pdfRenderToken) return;
+    if (!res.ok) { block.textContent = '번역을 불러올 수 없습니다.'; return; }
     const { translations } = await res.json();
     if (renderToken !== pdfRenderToken) return;
-
-    blocks.forEach((block, i) => {
-      block.classList.remove('translation-block-loading');
-      block.dataset.translationText = translations[i] || '번역을 불러올 수 없습니다.';
-      setBlockExpanded(block);
-    });
+    const translated = translations[0] || '번역을 불러올 수 없습니다.';
+    translationCache.set(cacheKey, translated);
+    block.textContent = translated;
   } catch {
     if (renderToken !== pdfRenderToken) return;
-    blocks.forEach(block => {
-      block.classList.remove('translation-block-loading');
-      block.dataset.translationText = '번역을 불러올 수 없습니다.';
-      setBlockExpanded(block);
-    });
+    block.textContent = '번역을 불러올 수 없습니다.';
   }
 }
 
