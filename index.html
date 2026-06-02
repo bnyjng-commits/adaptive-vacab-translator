@@ -924,6 +924,32 @@
   }
 
   .has-vocab-translated:hover { background: var(--accent-light); }
+
+  /* ── 단계 1: 전체 페이지 번역 오버레이 ── */
+  .pdf-page-translation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: white;
+    padding: 20px 24px;
+    font-family: 'Noto Sans KR', 'DM Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.9;
+    color: var(--text-main);
+    white-space: pre-wrap;
+    overflow-y: auto;
+    z-index: 10;
+    border-radius: 2px;
+  }
+
+  .pdf-overlay-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-sub);
+    font-size: 14px;
+  }
 </style>
 </head>
 <body>
@@ -1714,15 +1740,29 @@ function renderPdfTextLayer(textContent, viewport) {
   const renderToken = pdfRenderToken;
 
   const layer = document.getElementById('pdf-text-layer');
+
+  // 단계 전환 시 이전 오버레이 제거
+  cleanupPageOverlay();
+
   layer.innerHTML = '';
   layer.style.width = viewport.width + 'px';
   layer.style.height = viewport.height + 'px';
+
+  // 단계 1: 텍스트 레이어 숨기고 전체 페이지 오버레이 번역
+  if (currentStage === 1) {
+    layer.style.visibility = 'hidden';
+    applyPageOverlayTranslation(textContent, viewport, renderToken);
+    return;
+  }
+
+  // 단계 2~4: 텍스트 레이어 복원 후 기존 방식 렌더링
+  layer.style.visibility = '';
 
   // 긴 용어 우선 매칭되도록 길이 내림차순 정렬
   const allVocab = [...VOCAB.수학_용어, ...VOCAB.학습도구어]
     .sort((a, b) => b.ko.length - a.ko.length);
 
-  // 단계 1, 2에서 Claude API 일괄 번역 대기 목록
+  // 단계 2에서 Claude API 일괄 번역 대기 목록
   const batchQueue = [];
 
   textContent.items.forEach(item => {
@@ -1743,7 +1783,6 @@ function renderPdfTextLayer(textContent, viewport) {
       const isMathTerm = VOCAB.수학_용어.includes(matched);
       // 현재 단계에서 이 용어를 번역어로 교체할지 결정
       const shouldTranslate =
-        currentStage === 1 ||
         (currentStage === 2 && !isMathTerm) ||
         (currentStage === 3 && isMathTerm);
 
@@ -1771,7 +1810,7 @@ function renderPdfTextLayer(textContent, viewport) {
       const cleanWord = item.str.trim().replace(/^[\s.,!?;:()「」『』【】]+|[\s.,!?;:()「」『』【】]+$/g, '');
       const hasKorean = /[가-힣]/.test(cleanWord);
 
-      if (hasKorean && (currentStage === 1 || currentStage === 2)) {
+      if (hasKorean && currentStage === 2) {
         // 배치 번역 대기 — 번역 완료 전까지 원문 유지
         batchQueue.push({ span, text: item.str });
       } else if (hasKorean) {
@@ -1786,9 +1825,65 @@ function renderPdfTextLayer(textContent, viewport) {
     layer.appendChild(span);
   });
 
-  // 단계 1, 2: 비동기 일괄 번역 시작 (렌더 토큰으로 구버전 결과 무시)
+  // 단계 2: 비동기 일괄 번역 시작 (렌더 토큰으로 구버전 결과 무시)
   if (batchQueue.length > 0) {
     applyBatchTranslations(batchQueue, renderToken);
+  }
+}
+
+// 기존 전체 페이지 오버레이 제거
+function cleanupPageOverlay() {
+  const existing = document.querySelector('.pdf-page-translation-overlay');
+  if (existing) existing.remove();
+}
+
+// 단계 1 전용: 페이지 전체 텍스트를 한 번에 번역하여 오버레이로 표시
+async function applyPageOverlayTranslation(textContent, viewport, renderToken) {
+  const inner = document.querySelector('.pdf-canvas-inner');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'pdf-page-translation-overlay';
+  overlay.style.width = viewport.width + 'px';
+  overlay.style.height = viewport.height + 'px';
+  overlay.innerHTML = '<div class="pdf-overlay-loading">번역 중...</div>';
+  inner.appendChild(overlay);
+
+  // hasEOL 속성으로 줄바꿈 구조 보존
+  const parts = [];
+  textContent.items.forEach(item => {
+    if (item.str) {
+      parts.push(item.str);
+      if (item.hasEOL) parts.push('\n');
+    }
+  });
+  const pageText = parts.join('').trim();
+
+  if (!pageText) {
+    overlay.textContent = '(텍스트 없음)';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/translate-page', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: pageText, lang: currentLang })
+    });
+
+    if (renderToken !== pdfRenderToken) return;
+
+    if (!res.ok) {
+      overlay.textContent = '번역을 불러올 수 없습니다.';
+      return;
+    }
+
+    const { translation } = await res.json();
+    if (renderToken !== pdfRenderToken) return;
+
+    overlay.textContent = translation || '(번역 결과 없음)';
+  } catch {
+    if (renderToken !== pdfRenderToken) return;
+    overlay.textContent = '번역을 불러올 수 없습니다.';
   }
 }
 
