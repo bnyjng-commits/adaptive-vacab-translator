@@ -930,7 +930,7 @@
     position: absolute;
     background: rgba(255, 255, 255, 0.97);
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 4px 20px 4px 8px;
     font-family: 'Noto Sans KR', 'DM Sans', sans-serif;
     font-size: 13px;
     line-height: 1.6;
@@ -939,11 +939,24 @@
     white-space: pre-wrap;
     word-break: break-word;
     box-sizing: border-box;
+    cursor: pointer;
   }
 
   .translation-block-loading {
     color: var(--text-sub);
     font-style: italic;
+    cursor: default;
+  }
+
+  /* 토글 아이콘 (블록 오른쪽 상단 고정) */
+  .tb-icon {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    font-size: 10px;
+    color: var(--text-sub);
+    user-select: none;
+    line-height: 1;
   }
 </style>
 </head>
@@ -1871,11 +1884,58 @@ function fitTextInBlock(block, text) {
   }
 }
 
+// 펼쳐진 상태: 페이지 오른쪽 끝까지 너비 확장, 줄바꿈 최소화
+function setBlockExpanded(block) {
+  const text = block.dataset.translationText || '';
+  const expandedWidth = parseFloat(block.dataset.expandedWidth);
+
+  block.dataset.collapsed = 'false';
+  block.style.width      = expandedWidth + 'px';
+  block.style.height     = '';
+  block.style.overflow   = '';
+  block.style.whiteSpace = 'normal';
+  block.style.fontSize   = '13px';
+
+  block.textContent = text;
+  const icon = document.createElement('span');
+  icon.className = 'tb-icon';
+  icon.textContent = '◀';
+  block.appendChild(icon);
+}
+
+// 접힌 상태: 원문 너비로 복귀, 폰트 축소 로직 적용
+function setBlockCollapsed(block) {
+  const text = block.dataset.translationText || '';
+  const naturalWidth = parseFloat(block.dataset.naturalWidth);
+
+  block.dataset.collapsed = 'true';
+  block.style.width      = naturalWidth + 'px';
+  block.style.whiteSpace = '';  // CSS pre-wrap 복원
+
+  fitTextInBlock(block, text);  // textContent 설정 + 높이 조정
+
+  const icon = document.createElement('span');
+  icon.className = 'tb-icon';
+  icon.textContent = '▶';
+  block.appendChild(icon);
+}
+
+// 펼침 ↔ 접힘 토글
+function toggleTranslationBlock(block) {
+  if (block.dataset.collapsed === 'true') {
+    setBlockExpanded(block);
+  } else {
+    setBlockCollapsed(block);
+  }
+}
+
 // 단계 1 전용: span 위치 기반으로 문단을 감지하고 번역 블록을 생성
 async function applyParagraphOverlayTranslation(layer, renderToken) {
   const LINE_GAP_THRESHOLD = 10;
   const inner = document.querySelector('.pdf-canvas-inner');
   const innerRect = inner.getBoundingClientRect();
+  const canvas = document.getElementById('pdf-canvas');
+  const canvasRect = canvas.getBoundingClientRect();
 
   // visibility:hidden 상태에서도 getBoundingClientRect는 정상 동작
   const spanData = [];
@@ -1916,14 +1976,24 @@ async function applyParagraphOverlayTranslation(layer, renderToken) {
     const paraText = para.texts.join(' ');
     if (!/[가-힣]/.test(paraText)) continue;
 
+    const naturalWidth   = para.right - para.left;
+    const expandedWidth  = Math.max(
+      canvasRect.right - innerRect.left - para.left - 8,
+      naturalWidth
+    );
+
     const block = document.createElement('div');
     block.className = 'translation-block translation-block-loading';
     block.style.top       = para.top  + 'px';
     block.style.left      = para.left + 'px';
-    block.style.width     = (para.right - para.left) + 'px';
+    block.style.width     = naturalWidth + 'px';
     block.style.minHeight = (para.bottom - para.top) + 'px';
-    block.dataset.naturalHeight = para.bottom - para.top;
+    block.dataset.naturalHeight  = para.bottom - para.top;
+    block.dataset.naturalWidth   = naturalWidth;
+    block.dataset.expandedWidth  = expandedWidth;
+    block.dataset.collapsed      = 'false';
     block.textContent = '번역 중...';
+    block.addEventListener('click', () => toggleTranslationBlock(block));
     inner.appendChild(block);
     blocks.push(block);
     texts.push(paraText);
@@ -1943,13 +2013,15 @@ async function applyParagraphOverlayTranslation(layer, renderToken) {
 
     blocks.forEach((block, i) => {
       block.classList.remove('translation-block-loading');
-      fitTextInBlock(block, translations[i] || '번역을 불러올 수 없습니다.');
+      block.dataset.translationText = translations[i] || '번역을 불러올 수 없습니다.';
+      setBlockExpanded(block);
     });
   } catch {
     if (renderToken !== pdfRenderToken) return;
     blocks.forEach(block => {
       block.classList.remove('translation-block-loading');
-      fitTextInBlock(block, '번역을 불러올 수 없습니다.');
+      block.dataset.translationText = '번역을 불러올 수 없습니다.';
+      setBlockExpanded(block);
     });
   }
 }
