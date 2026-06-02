@@ -925,30 +925,25 @@
 
   .has-vocab-translated:hover { background: var(--accent-light); }
 
-  /* ── 단계 1: 전체 페이지 번역 오버레이 ── */
-  .pdf-page-translation-overlay {
+  /* ── 단계 1: 문단별 번역 블록 ── */
+  .translation-block {
     position: absolute;
-    top: 0;
-    left: 0;
-    background: white;
-    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.97);
+    border-radius: 4px;
+    padding: 4px 8px;
     font-family: 'Noto Sans KR', 'DM Sans', sans-serif;
-    font-size: 14px;
-    line-height: 1.9;
+    font-size: 13px;
+    line-height: 1.6;
     color: var(--text-main);
-    white-space: pre-wrap;
-    overflow-y: auto;
     z-index: 10;
-    border-radius: 2px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    box-sizing: border-box;
   }
 
-  .pdf-overlay-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
+  .translation-block-loading {
     color: var(--text-sub);
-    font-size: 14px;
+    font-style: italic;
   }
 </style>
 </head>
@@ -1748,10 +1743,24 @@ function renderPdfTextLayer(textContent, viewport) {
   layer.style.width = viewport.width + 'px';
   layer.style.height = viewport.height + 'px';
 
-  // 단계 1: 텍스트 레이어 숨기고 전체 페이지 오버레이 번역
+  // 단계 1: 텍스트 레이어 숨기고 span 위치 데이터를 이용해 문단별 번역 블록 표시
   if (currentStage === 1) {
     layer.style.visibility = 'hidden';
-    applyPageOverlayTranslation(textContent, viewport, renderToken);
+
+    // 위치 추출용 span을 숨겨진 레이어에 추가 (getBoundingClientRect 사용)
+    textContent.items.forEach(item => {
+      if (!item.str.trim()) return;
+      const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+      const fontHeight = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+      const span = document.createElement('span');
+      span.style.left = tx[4] + 'px';
+      span.style.top = (tx[5] - fontHeight) + 'px';
+      span.style.fontSize = fontHeight + 'px';
+      span.textContent = item.str;
+      layer.appendChild(span);
+    });
+
+    applyParagraphOverlayTranslation(layer, renderToken);
     return;
   }
 
@@ -1831,59 +1840,91 @@ function renderPdfTextLayer(textContent, viewport) {
   }
 }
 
-// 기존 전체 페이지 오버레이 제거
+// 기존 번역 블록 전체 제거 (단계 전환 시 호출)
 function cleanupPageOverlay() {
-  const existing = document.querySelector('.pdf-page-translation-overlay');
-  if (existing) existing.remove();
+  document.querySelectorAll('.pdf-page-translation-overlay, .translation-block')
+    .forEach(el => el.remove());
 }
 
-// 단계 1 전용: 페이지 전체 텍스트를 한 번에 번역하여 오버레이로 표시
-async function applyPageOverlayTranslation(textContent, viewport, renderToken) {
+// 단계 1 전용: span 위치 기반으로 문단을 감지하고 번역 블록을 생성
+async function applyParagraphOverlayTranslation(layer, renderToken) {
+  const LINE_GAP_THRESHOLD = 10;
   const inner = document.querySelector('.pdf-canvas-inner');
+  const innerRect = inner.getBoundingClientRect();
 
-  const overlay = document.createElement('div');
-  overlay.className = 'pdf-page-translation-overlay';
-  overlay.style.width = viewport.width + 'px';
-  overlay.style.height = viewport.height + 'px';
-  overlay.innerHTML = '<div class="pdf-overlay-loading">번역 중...</div>';
-  inner.appendChild(overlay);
-
-  // hasEOL 속성으로 줄바꿈 구조 보존
-  const parts = [];
-  textContent.items.forEach(item => {
-    if (item.str) {
-      parts.push(item.str);
-      if (item.hasEOL) parts.push('\n');
-    }
+  // visibility:hidden 상태에서도 getBoundingClientRect는 정상 동작
+  const spanData = [];
+  layer.querySelectorAll('span').forEach(span => {
+    const rect = span.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return;
+    spanData.push({
+      top:    rect.top    - innerRect.top,
+      bottom: rect.bottom - innerRect.top,
+      left:   rect.left   - innerRect.left,
+      right:  rect.right  - innerRect.left,
+      text:   span.textContent
+    });
   });
-  const pageText = parts.join('').trim();
 
-  if (!pageText) {
-    overlay.textContent = '(텍스트 없음)';
-    return;
+  // top → left 순으로 정렬
+  spanData.sort((a, b) => a.top !== b.top ? a.top - b.top : a.left - b.left);
+
+  // y좌표 간격으로 문단 묶기
+  const paragraphs = [];
+  let cur = null;
+  for (const d of spanData) {
+    if (!cur || d.top - cur.bottom > LINE_GAP_THRESHOLD) {
+      cur = { top: d.top, bottom: d.bottom, left: d.left, right: d.right, texts: [d.text] };
+      paragraphs.push(cur);
+    } else {
+      cur.bottom = Math.max(cur.bottom, d.bottom);
+      cur.left   = Math.min(cur.left,   d.left);
+      cur.right  = Math.max(cur.right,  d.right);
+      cur.texts.push(d.text);
+    }
   }
 
+  // 한국어가 포함된 문단만 번역 블록 생성
+  const blocks = [];
+  const texts  = [];
+  for (const para of paragraphs) {
+    const paraText = para.texts.join(' ');
+    if (!/[가-힣]/.test(paraText)) continue;
+
+    const block = document.createElement('div');
+    block.className = 'translation-block translation-block-loading';
+    block.style.top       = para.top  + 'px';
+    block.style.left      = para.left + 'px';
+    block.style.width     = (para.right - para.left) + 'px';
+    block.style.minHeight = (para.bottom - para.top) + 'px';
+    block.textContent = '번역 중...';
+    inner.appendChild(block);
+    blocks.push(block);
+    texts.push(paraText);
+  }
+
+  if (blocks.length === 0) return;
+
   try {
-    const res = await fetch('/api/translate-page', {
+    const res = await fetch('/api/translate-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: pageText, lang: currentLang })
+      body: JSON.stringify({ texts, lang: currentLang })
     });
-
+    if (renderToken !== pdfRenderToken || !res.ok) return;
+    const { translations } = await res.json();
     if (renderToken !== pdfRenderToken) return;
 
-    if (!res.ok) {
-      overlay.textContent = '번역을 불러올 수 없습니다.';
-      return;
-    }
-
-    const { translation } = await res.json();
-    if (renderToken !== pdfRenderToken) return;
-
-    overlay.textContent = translation || '(번역 결과 없음)';
+    blocks.forEach((block, i) => {
+      block.classList.remove('translation-block-loading');
+      block.textContent = translations[i] || '번역을 불러올 수 없습니다.';
+    });
   } catch {
     if (renderToken !== pdfRenderToken) return;
-    overlay.textContent = '번역을 불러올 수 없습니다.';
+    blocks.forEach(block => {
+      block.classList.remove('translation-block-loading');
+      block.textContent = '번역을 불러올 수 없습니다.';
+    });
   }
 }
 
