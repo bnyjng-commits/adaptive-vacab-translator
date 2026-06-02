@@ -1846,6 +1846,31 @@ function cleanupPageOverlay() {
     .forEach(el => el.remove());
 }
 
+// .translation-block 텍스트 오버플로우 처리 (1단계 전용)
+// 우선순위: ① 기본 크기 → ② 폰트 축소(최소 9px) → ③ 높이 확장
+function fitTextInBlock(block, text) {
+  const DEFAULT_FONT = 13;
+  const MIN_FONT = 9;
+  const naturalHeight = parseFloat(block.dataset.naturalHeight);
+
+  block.textContent = text;
+  block.style.height   = naturalHeight + 'px';
+  block.style.overflow = 'hidden';
+  block.style.fontSize = DEFAULT_FONT + 'px';
+
+  // 폰트를 1px씩 줄이며 맞춤 시도
+  let fontSize = DEFAULT_FONT;
+  while (block.scrollHeight > block.clientHeight && fontSize > MIN_FONT) {
+    fontSize--;
+    block.style.fontSize = fontSize + 'px';
+  }
+
+  // 9px에서도 넘치면 높이를 최소한으로 확장 (너비는 유지)
+  if (block.scrollHeight > block.clientHeight) {
+    block.style.height = block.scrollHeight + 'px';
+  }
+}
+
 // 단계 1 전용: span 위치 기반으로 문단을 감지하고 번역 블록을 생성
 async function applyParagraphOverlayTranslation(layer, renderToken) {
   const LINE_GAP_THRESHOLD = 10;
@@ -1897,6 +1922,7 @@ async function applyParagraphOverlayTranslation(layer, renderToken) {
     block.style.left      = para.left + 'px';
     block.style.width     = (para.right - para.left) + 'px';
     block.style.minHeight = (para.bottom - para.top) + 'px';
+    block.dataset.naturalHeight = para.bottom - para.top;
     block.textContent = '번역 중...';
     inner.appendChild(block);
     blocks.push(block);
@@ -1917,13 +1943,13 @@ async function applyParagraphOverlayTranslation(layer, renderToken) {
 
     blocks.forEach((block, i) => {
       block.classList.remove('translation-block-loading');
-      block.textContent = translations[i] || '번역을 불러올 수 없습니다.';
+      fitTextInBlock(block, translations[i] || '번역을 불러올 수 없습니다.');
     });
   } catch {
     if (renderToken !== pdfRenderToken) return;
     blocks.forEach(block => {
       block.classList.remove('translation-block-loading');
-      block.textContent = '번역을 불러올 수 없습니다.';
+      fitTextInBlock(block, '번역을 불러올 수 없습니다.');
     });
   }
 }
