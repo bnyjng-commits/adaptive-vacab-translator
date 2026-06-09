@@ -1900,17 +1900,41 @@ function setupParagraphAreas(layer, renderToken) {
   // 2단계: 텍스트 패턴 기준으로 서브 문단 재분리 (bounding box는 해당 span에서 재계산)
   const SPLIT_PATTERNS = [
     /^[0-9]+$/,       // 문제 번호: "1", "2"
-    /^\([0-9]+\)$/,   // 소문제 번호: "(1)", "(2)"
+    /^\([0-9]+\)$/,   // 소문제 번호: "(1)", "(2)" — 단일 span인 경우
     /^•보기•$/,       // 보기 레이블 (불릿형)
     /^【보기】$/      // 보기 레이블 (대괄호형)
   ];
   const finalParas = [];
   for (const para of paragraphs) {
     let subCur = null;
-    for (const sp of para.spans) {
-      const isSplit = SPLIT_PATTERNS.some(p => p.test(sp.text.trim()));
+    const spans = para.spans;
+    let i = 0;
+    while (i < spans.length) {
+      const sp = spans[i];
+      let isSplit = SPLIT_PATTERNS.some(p => p.test(sp.text.trim()));
+      let consumed = 1;
+
+      // PDF.js가 "(1)"을 "(", "1", ")" 세 span으로 쪼갠 경우 lookahead로 감지
+      if (!isSplit && sp.text.trim() === '(') {
+        const next1 = spans[i + 1];
+        const next2 = spans[i + 2];
+        if (next1 && /^[0-9]+$/.test(next1.text.trim()) && next2 && next2.text.trim() === ')') {
+          isSplit = true;
+          consumed = 3;
+        }
+      }
+
       if (!subCur || isSplit) {
         subCur = { top: sp.top, bottom: sp.bottom, left: sp.left, right: sp.right, texts: [sp.text] };
+        // lookahead로 묶인 추가 span도 같은 서브 문단에 포함
+        for (let k = 1; k < consumed; k++) {
+          const extra = spans[i + k];
+          subCur.top    = Math.min(subCur.top,    extra.top);
+          subCur.bottom = Math.max(subCur.bottom, extra.bottom);
+          subCur.left   = Math.min(subCur.left,   extra.left);
+          subCur.right  = Math.max(subCur.right,  extra.right);
+          subCur.texts.push(extra.text);
+        }
         finalParas.push(subCur);
       } else {
         subCur.top    = Math.min(subCur.top,    sp.top);
@@ -1919,6 +1943,8 @@ function setupParagraphAreas(layer, renderToken) {
         subCur.right  = Math.max(subCur.right,  sp.right);
         subCur.texts.push(sp.text);
       }
+
+      i += consumed;
     }
   }
 
