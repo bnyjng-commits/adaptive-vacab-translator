@@ -1,18 +1,11 @@
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// 수학_용어 ko 목록 캐시 (프로세스 재시작 전까지 유지)
-let mathTermsCache = null;
-function getMathTerms() {
-  if (!mathTermsCache) {
-    const data = JSON.parse(readFileSync(join(__dirname, '..', 'math_vocab_geometry.json'), 'utf-8'));
-    mathTermsCache = data['수학_용어'].map(v => v.ko);
-  }
-  return mathTermsCache;
-}
+// math_vocab_geometry.json 수학_용어[].ko 목록 (하드코딩 — Vercel fs 경로 문제 방지)
+const MATH_TERMS = [
+  '교점', '교선', '직선', '반직선', '선분', '두 점 사이의 거리', '수선의 발',
+  '각', '예각', '직각', '둔각', '평각', '평행', '꼬인 위치', '동위각', '엇각',
+  '내각', '외각', '부채꼴', '호', '현', '중심각', '활꼴', '반지름', '원주율',
+  '다각형', '다면체', '정다면체', '각뿔대', '회전체', '회전축', '겉넓이', '부피',
+  '구', '전개도', '밑넓이', '높이', '꼭짓점', '모서리', '넓이'
+];
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -38,8 +31,7 @@ export default async function handler(req, res) {
 
   // 단계 2: 수학 핵심용어는 번역하지 않고 한국어 원문 유지
   if (stage === 2) {
-    const mathTerms = getMathTerms();
-    systemPrompt += `\n\n단, 다음 수학 핵심용어는 번역하지 말고 한국어 원문 그대로 유지해:\n${mathTerms.join(', ')}`;
+    systemPrompt += `\n\n단, 다음 수학 핵심용어는 번역하지 말고 한국어 원문 그대로 유지해:\n${MATH_TERMS.join(', ')}`;
   }
 
   try {
@@ -51,7 +43,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 2000,
         system: systemPrompt,
         messages: [
