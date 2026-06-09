@@ -953,6 +953,7 @@
     word-break: break-word;
     box-sizing: border-box;
     cursor: pointer;
+    text-align: left;
   }
 </style>
 </head>
@@ -1880,21 +1881,48 @@ function setupParagraphAreas(layer, renderToken) {
 
   spanData.sort((a, b) => a.top !== b.top ? a.top - b.top : a.left - b.left);
 
+  // 1단계: y좌표 간격으로 문단 묶기 (span 위치 참조 포함)
   const paragraphs = [];
   let cur = null;
   for (const d of spanData) {
     if (!cur || d.top - cur.bottom > LINE_GAP_THRESHOLD) {
-      cur = { top: d.top, bottom: d.bottom, left: d.left, right: d.right, texts: [d.text] };
+      cur = { top: d.top, bottom: d.bottom, left: d.left, right: d.right, texts: [d.text], spans: [d] };
       paragraphs.push(cur);
     } else {
       cur.bottom = Math.max(cur.bottom, d.bottom);
       cur.left   = Math.min(cur.left,   d.left);
       cur.right  = Math.max(cur.right,  d.right);
       cur.texts.push(d.text);
+      cur.spans.push(d);
     }
   }
 
+  // 2단계: 텍스트 패턴 기준으로 서브 문단 재분리 (bounding box는 해당 span에서 재계산)
+  const SPLIT_PATTERNS = [
+    /^[0-9]+$/,       // 문제 번호: "1", "2"
+    /^\([0-9]+\)$/,   // 소문제 번호: "(1)", "(2)"
+    /^•보기•$/,       // 보기 레이블 (불릿형)
+    /^【보기】$/      // 보기 레이블 (대괄호형)
+  ];
+  const finalParas = [];
   for (const para of paragraphs) {
+    let subCur = null;
+    for (const sp of para.spans) {
+      const isSplit = SPLIT_PATTERNS.some(p => p.test(sp.text.trim()));
+      if (!subCur || isSplit) {
+        subCur = { top: sp.top, bottom: sp.bottom, left: sp.left, right: sp.right, texts: [sp.text] };
+        finalParas.push(subCur);
+      } else {
+        subCur.top    = Math.min(subCur.top,    sp.top);
+        subCur.bottom = Math.max(subCur.bottom, sp.bottom);
+        subCur.left   = Math.min(subCur.left,   sp.left);
+        subCur.right  = Math.max(subCur.right,  sp.right);
+        subCur.texts.push(sp.text);
+      }
+    }
+  }
+
+  for (const para of finalParas) {
     const paraText = para.texts.join(' ');
     if (!/[가-힣]/.test(paraText)) continue;
 
