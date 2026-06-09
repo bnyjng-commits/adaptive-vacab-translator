@@ -1754,8 +1754,8 @@ function renderPdfTextLayer(textContent, viewport) {
   layer.style.width = viewport.width + 'px';
   layer.style.height = viewport.height + 'px';
 
-  // 단계 1: 원문 표시 (레이어 투명 span 유지) + 문단 클릭 영역 설정
-  if (currentStage === 1) {
+  // 단계 1·2: 원문 표시 (레이어 투명 span 유지) + 문단 클릭 영역 설정
+  if (currentStage === 1 || currentStage === 2) {
     layer.style.visibility = '';  // 레이어 복원 (canvas 원문 그대로 보임)
 
     // 위치 추출용 span — color:transparent이므로 canvas 원문에 영향 없음
@@ -1775,15 +1775,12 @@ function renderPdfTextLayer(textContent, viewport) {
     return;
   }
 
-  // 단계 2~4: 텍스트 레이어 복원 후 기존 방식 렌더링
+  // 단계 3~4: 텍스트 레이어 복원 후 기존 방식 렌더링
   layer.style.visibility = '';
 
   // 긴 용어 우선 매칭되도록 길이 내림차순 정렬
   const allVocab = [...VOCAB.수학_용어, ...VOCAB.학습도구어]
     .sort((a, b) => b.ko.length - a.ko.length);
-
-  // 단계 2에서 Claude API 일괄 번역 대기 목록
-  const batchQueue = [];
 
   textContent.items.forEach(item => {
     if (!item.str.trim()) return;
@@ -1801,10 +1798,8 @@ function renderPdfTextLayer(textContent, viewport) {
     const matched = findVocabAtWordBoundary(item.str, allVocab);
     if (matched) {
       const isMathTerm = VOCAB.수학_용어.includes(matched);
-      // 현재 단계에서 이 용어를 번역어로 교체할지 결정
-      const shouldTranslate =
-        (currentStage === 2 && !isMathTerm) ||
-        (currentStage === 3 && isMathTerm);
+      // 단계 3에서만 수학 핵심용어를 번역어로 교체
+      const shouldTranslate = currentStage === 3 && isMathTerm;
 
       splitTextByVocab(item.str, matched.ko).forEach(part => {
         if (part.isVocab) {
@@ -1830,10 +1825,7 @@ function renderPdfTextLayer(textContent, viewport) {
       const cleanWord = item.str.trim().replace(/^[\s.,!?;:()「」『』【】]+|[\s.,!?;:()「」『』【】]+$/g, '');
       const hasKorean = /[가-힣]/.test(cleanWord);
 
-      if (hasKorean && currentStage === 2) {
-        // 배치 번역 대기 — 번역 완료 전까지 원문 유지
-        batchQueue.push({ span, text: item.str });
-      } else if (hasKorean) {
+      if (hasKorean) {
         span.classList.add('pdf-span-clickable');
         span.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1844,11 +1836,6 @@ function renderPdfTextLayer(textContent, viewport) {
 
     layer.appendChild(span);
   });
-
-  // 단계 2: 비동기 일괄 번역 시작 (렌더 토큰으로 구버전 결과 무시)
-  if (batchQueue.length > 0) {
-    applyBatchTranslations(batchQueue, renderToken);
-  }
 }
 
 // 번역 관련 DOM 전체 제거 + 캐시 초기화 (단계·페이지 전환 시 호출)
@@ -1858,7 +1845,7 @@ function cleanupPageOverlay() {
   translationCache.clear();
 }
 
-// 단계 1 전용: 문단을 감지하고 hover/클릭 영역(.translation-paragraph-area)을 생성
+// 단계 1·2 공용: 문단을 감지하고 hover/클릭 영역(.translation-paragraph-area)을 생성
 function setupParagraphAreas(layer, renderToken) {
   const LINE_GAP_THRESHOLD = 10;
   const inner = document.querySelector('.pdf-canvas-inner');
@@ -2005,7 +1992,7 @@ async function onParagraphAreaClick(area, para, paraText, expandedWidth, renderT
     const res = await fetch('/api/translate-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts: [paraText], lang: currentLang })
+      body: JSON.stringify({ texts: [paraText], lang: currentLang, stage: currentStage })
     });
     if (renderToken !== pdfRenderToken) return;
     if (!res.ok) { block.textContent = '번역을 불러올 수 없습니다.'; return; }
@@ -2020,33 +2007,6 @@ async function onParagraphAreaClick(area, para, paraText, expandedWidth, renderT
   }
 }
 
-async function applyBatchTranslations(queue, renderToken) {
-  const texts = queue.map(({ text }) => text);
-  try {
-    const res = await fetch('/api/translate-batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts, lang: currentLang })
-    });
-    // 새 렌더가 시작됐으면 결과 무시
-    if (renderToken !== pdfRenderToken || !res.ok) return;
-    const { translations } = await res.json();
-    if (renderToken !== pdfRenderToken) return;
-
-    queue.forEach(({ span }, i) => {
-      const translation = translations[i];
-      if (translation) {
-        span.textContent = '';
-        const inner = document.createElement('span');
-        inner.className = 'has-vocab-translated';
-        inner.textContent = translation;
-        span.appendChild(inner);
-      }
-    });
-  } catch {
-    // 실패 시 원문 유지
-  }
-}
 
 // 어절 시작(공백 직후 또는 문자열 처음)에서만 용어 매칭
 function findVocabAtWordBoundary(str, allVocab) {
