@@ -1324,6 +1324,10 @@ let currentLang = 'de';
 let currentStage = 1;
 let currentUnit = '전체';
 let currentReviewTab = 'today';
+let stageStartTime = null;
+let stageDurations = { "1": 0, "2": 0, "3": 0 };
+let stageChanges = [];
+let sessionStartStage = null;
 let clickedWords = new Set();
 
 // ── Supabase 상태 ────────────────────────────────────────────────
@@ -1536,6 +1540,12 @@ function setLang(lang) {
 }
 
 function setStage(stage, saveToDb = true) {
+  if (stageStartTime !== null && stage !== currentStage) {
+    const elapsed = Math.floor((Date.now() - stageStartTime) / 1000);
+    stageDurations[String(currentStage)] = (stageDurations[String(currentStage)] || 0) + elapsed;
+    stageChanges.push({ from: currentStage, to: stage, at: nowTimeStr() });
+    stageStartTime = Date.now();
+  }
   currentStage = stage;
   document.querySelectorAll('.stage-btn').forEach(b => {
     b.classList.toggle('active', parseInt(b.dataset.stage) === stage);
@@ -1650,6 +1660,8 @@ async function loadStudentData(userId) {
 
   if (data) {
     setStage(data.current_stage || 1, false);
+    sessionStartStage = currentStage;
+    stageStartTime = Date.now();
     sessionCount = data.session_count || 0;
     stageSessionCount = data.stage_session_count || 0;
     updateSessionDisplay();
@@ -1738,6 +1750,47 @@ async function doLogout() {
   await supabaseClient.auth.signOut();
 }
 
+// ── 단계 사용 기록 ────────────────────────────────────────────────
+
+function nowTimeStr() {
+  return new Date().toTimeString().slice(0, 8); // "HH:MM:SS"
+}
+
+async function saveSessionLog(today) {
+  if (!supabaseClient || !currentUser) return;
+
+  const { data: existing } = await supabaseClient
+    .from('session_logs')
+    .select('stage_changes, stage_durations')
+    .eq('student_id', currentUser.id)
+    .eq('date', today)
+    .single();
+
+  let mergedChanges, mergedDurations;
+  if (existing) {
+    mergedChanges = [...(existing.stage_changes || []), ...stageChanges];
+    const existDur = existing.stage_durations || {};
+    mergedDurations = {};
+    for (const k of ['1', '2', '3']) {
+      mergedDurations[k] = (existDur[k] || 0) + (stageDurations[k] || 0);
+    }
+  } else {
+    mergedChanges = stageChanges;
+    mergedDurations = { ...stageDurations };
+  }
+
+  await supabaseClient
+    .from('session_logs')
+    .upsert({
+      student_id: currentUser.id,
+      date: today,
+      start_stage: sessionStartStage ?? currentStage,
+      stage_changes: mergedChanges,
+      stage_durations: mergedDurations,
+      updated_at: new Date().toISOString()
+    });
+}
+
 // ── 수업 종료 / 노트 모달 ────────────────────────────────────────
 
 function openNoteModal() {
@@ -1756,6 +1809,14 @@ async function saveNote() {
   const today = new Date().toISOString().slice(0, 10);
 
   saveBtn.disabled = true;
+
+  // 마지막 단계 체류 시간 확정
+  if (stageStartTime !== null) {
+    const elapsed = Math.floor((Date.now() - stageStartTime) / 1000);
+    stageDurations[String(currentStage)] = (stageDurations[String(currentStage)] || 0) + elapsed;
+    stageStartTime = null;
+  }
+  await saveSessionLog(today);
 
   const { error } = await supabaseClient
     .from('session_notes')
