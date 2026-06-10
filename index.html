@@ -1409,6 +1409,7 @@ document.addEventListener('click', hideTooltip);
 // ── Lang / Stage setters ─────────────────────────────────────────
 function setLang(lang) {
   currentLang = lang;
+  translationCache.clear();
   document.querySelectorAll('.lang-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.lang === lang);
   });
