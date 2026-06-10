@@ -589,6 +589,99 @@
 
   .toast.toast-error { background: #c0392b; }
 
+  /* ── Review note panel ── */
+  .review-panel { display: none; }
+
+  .review-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .review-tab {
+    padding: 4px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-sub);
+  }
+
+  .review-tab.active {
+    background: var(--accent-light);
+    border-color: var(--accent2);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .review-list {
+    max-height: 280px;
+    overflow-y: auto;
+    margin-top: 4px;
+  }
+
+  .review-list::-webkit-scrollbar { width: 4px; }
+  .review-list::-webkit-scrollbar-track { background: transparent; }
+  .review-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .review-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--surface2);
+  }
+
+  .review-item:last-child { border-bottom: none; }
+
+  .review-click-badge {
+    flex-shrink: 0;
+    min-width: 24px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: var(--accent-light);
+    color: var(--accent);
+    border: 1px solid var(--accent2);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .review-ko {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  .review-trans {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-top: 1px;
+  }
+
+  .review-empty {
+    font-size: 13px;
+    color: var(--text-light);
+    padding: 12px 0;
+    text-align: center;
+  }
+
+  /* 데스크탑(≥1025px): 사이드 패널에만 표시 */
+  @media (min-width: 1025px) {
+    .review-panel-desktop.visible { display: block; }
+    .review-panel-mobile { display: none !important; }
+  }
+
+  /* 태블릿·모바일(≤1024px): 콘텐츠 열에만 표시 */
+  @media (max-width: 1024px) {
+    .review-panel-mobile.visible { display: block; }
+    .review-panel-desktop { display: none !important; }
+  }
+
   /* ── Responsive ── */
   @media (max-width: 1024px) {
     .main {
@@ -1054,6 +1147,19 @@
       </div>
     </div>
 
+    <!-- 복습노트 (모바일·태블릿) -->
+    <div class="review-panel review-panel-mobile panel-card" id="review-panel-mobile">
+      <div class="panel-card-header">📝 복습노트</div>
+      <div class="panel-card-body">
+        <div class="review-tabs">
+          <button class="review-tab active" data-period="today" onclick="loadReviewNote('today')">오늘 수업</button>
+          <button class="review-tab" data-period="week" onclick="loadReviewNote('week')">이번 주</button>
+          <button class="review-tab" data-period="all" onclick="loadReviewNote('all')">전체 누적</button>
+        </div>
+        <div class="review-list" id="review-list-mobile"></div>
+      </div>
+    </div>
+
     <!-- Demo text -->
     <div class="demo-section">
       <h2>📖 데모 텍스트</h2>
@@ -1073,6 +1179,19 @@
 
   <!-- Side panel -->
   <div class="side-panel">
+
+    <!-- 복습노트 (데스크탑) -->
+    <div class="review-panel review-panel-desktop panel-card" id="review-panel-desktop">
+      <div class="panel-card-header">📝 복습노트</div>
+      <div class="panel-card-body">
+        <div class="review-tabs">
+          <button class="review-tab active" data-period="today" onclick="loadReviewNote('today')">오늘 수업</button>
+          <button class="review-tab" data-period="week" onclick="loadReviewNote('week')">이번 주</button>
+          <button class="review-tab" data-period="all" onclick="loadReviewNote('all')">전체 누적</button>
+        </div>
+        <div class="review-list" id="review-list-desktop"></div>
+      </div>
+    </div>
 
     <!-- Vocab search -->
     <div class="panel-card">
@@ -1204,6 +1323,7 @@ const PARTICLE_FIRST_CHARS = new Set(['이', '가', '을', '를', '은', '는', 
 let currentLang = 'de';
 let currentStage = 1;
 let currentUnit = '전체';
+let currentReviewTab = 'today';
 let clickedWords = new Set();
 
 // ── Supabase 상태 ────────────────────────────────────────────────
@@ -1370,6 +1490,7 @@ function onTokenClick(e, vocab, originalWord) {
   clickedWords.add(originalWord);
   document.getElementById('stat-clicked').textContent = clickedWords.size;
   showTooltip(e, vocab);
+  if (currentStage === 3) recordVocabClick(vocab.ko, vocab[currentLang] || vocab.ko);
 }
 
 // ── Tooltip ──────────────────────────────────────────────────────
@@ -1411,6 +1532,7 @@ function setLang(lang) {
   renderDemoText();
   renderVocabList();
   rerenderPdfTextOnly();
+  if (currentStage === 3 && currentUser) loadReviewNote(currentReviewTab);
 }
 
 function setStage(stage, saveToDb = true) {
@@ -1421,6 +1543,9 @@ function setStage(stage, saveToDb = true) {
   document.getElementById('stage-desc').textContent = STAGE_DESC[stage];
   renderDemoText();
   rerenderPdfTextOnly();
+  const isStage3 = stage === 3;
+  document.querySelectorAll('.review-panel').forEach(el => el.classList.toggle('visible', isStage3));
+  if (isStage3 && currentUser) loadReviewNote(currentReviewTab);
   if (saveToDb && currentUser) {
     stageSessionCount = 0;
     updateSessionDisplay();
@@ -2106,9 +2231,95 @@ async function showClaudeTooltip(e, word) {
       defEl.textContent = definition;
       defEl.style.display = 'block';
     }
+    if (currentStage === 3) recordVocabClick(word, translation || word);
   } catch {
     document.getElementById('tt-trans').textContent = '번역을 불러올 수 없습니다';
   }
+}
+
+// ── 복습노트 ─────────────────────────────────────────────────────
+
+async function recordVocabClick(ko, translation) {
+  if (!supabaseClient || !currentUser) return;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: existing } = await supabaseClient
+    .from('vocab_clicks')
+    .select('id, count')
+    .eq('student_id', currentUser.id)
+    .eq('ko', ko)
+    .eq('lang', currentLang)
+    .eq('clicked_date', today)
+    .single();
+
+  if (existing) {
+    await supabaseClient
+      .from('vocab_clicks')
+      .update({ count: existing.count + 1, translation })
+      .eq('id', existing.id);
+  } else {
+    await supabaseClient
+      .from('vocab_clicks')
+      .insert({ student_id: currentUser.id, ko, translation, lang: currentLang, clicked_date: today });
+  }
+
+  loadReviewNote(currentReviewTab);
+}
+
+async function loadReviewNote(period = 'today') {
+  if (!supabaseClient || !currentUser) return;
+  currentReviewTab = period;
+
+  document.querySelectorAll('.review-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.period === period);
+  });
+
+  const today = new Date().toISOString().slice(0, 10);
+  let query = supabaseClient
+    .from('vocab_clicks')
+    .select('ko, translation, count, clicked_date')
+    .eq('student_id', currentUser.id)
+    .eq('lang', currentLang);
+
+  if (period === 'today') {
+    query = query.eq('clicked_date', today);
+  } else if (period === 'week') {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 6);
+    query = query.gte('clicked_date', weekAgo.toISOString().slice(0, 10));
+  }
+
+  const { data } = await query;
+  const rows = data || [];
+
+  if (period === 'today') {
+    renderReviewNote(rows.sort((a, b) => b.count - a.count));
+  } else {
+    const map = {};
+    rows.forEach(row => {
+      if (!map[row.ko]) map[row.ko] = { ko: row.ko, translation: row.translation, count: 0 };
+      map[row.ko].count += row.count;
+    });
+    renderReviewNote(Object.values(map).sort((a, b) => b.count - a.count));
+  }
+}
+
+function renderReviewNote(data) {
+  const html = data.length === 0
+    ? '<p class="review-empty">아직 클릭한 단어가 없어요</p>'
+    : data.map(item => `
+      <div class="review-item">
+        <span class="review-click-badge">${item.count}</span>
+        <div>
+          <div class="review-ko">${item.ko}</div>
+          <div class="review-trans">${item.translation}</div>
+        </div>
+      </div>`).join('');
+
+  const mobile = document.getElementById('review-list-mobile');
+  const desktop = document.getElementById('review-list-desktop');
+  if (mobile) mobile.innerHTML = html;
+  if (desktop) desktop.innerHTML = html;
 }
 
 // ── Init ─────────────────────────────────────────────────────────
