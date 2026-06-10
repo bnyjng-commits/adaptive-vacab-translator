@@ -1018,8 +1018,7 @@
   <div class="stage-btns">
     <button class="stage-btn active" data-stage="1" onclick="setStage(1)">1단계 — 전체번역</button>
     <button class="stage-btn" data-stage="2" onclick="setStage(2)">2단계 — 핵심단어 제외</button>
-    <button class="stage-btn" data-stage="3" onclick="setStage(3)">3단계 — 핵심단어만</button>
-    <button class="stage-btn" data-stage="4" onclick="setStage(4)">4단계 — 번역 없음</button>
+    <button class="stage-btn" data-stage="3" onclick="setStage(3)">3단계 — 번역 없음</button>
   </div>
   <span class="stage-desc" id="stage-desc">모든 텍스트를 번역합니다</span>
 </div>
@@ -1216,8 +1215,7 @@ let stageSessionCount = 0;
 const STAGE_DESC = {
   1: '모든 텍스트를 번역합니다',
   2: '수학 핵심 용어 빼고 나머지를 번역합니다',
-  3: '수학 핵심 용어만 번역합니다',
-  4: '한국어 원문 그대로 표시합니다'
+  3: '번역 없이 원문을 읽습니다'
 };
 
 // ── Demo text ────────────────────────────────────────────────────
@@ -1346,9 +1344,6 @@ function renderDemoText() {
       if (currentStage === 2) {
         if (isInstTerm) displayText = (vocab[currentLang] || token.w);
         else if (isMathTerm) displayText = vocab.ko + suffix;
-        else displayText = token.w;
-      } else if (currentStage === 3) {
-        if (isMathTerm) displayText = (vocab[currentLang] || vocab.ko) + suffix;
         else displayText = token.w;
       } else {
         displayText = token.w;
@@ -1552,7 +1547,7 @@ async function autoCountSession(today) {
   let newStageSessionCount;
   let stageAdvanced = false;
 
-  if (stageSessionCount >= 3 && currentStage < 4) {
+  if (stageSessionCount >= 3 && currentStage < 3) {
     newStage = currentStage + 1;
     newStageSessionCount = 1;
     stageAdvanced = true;
@@ -1823,19 +1818,12 @@ function renderPdfTextLayer(textContent, viewport) {
     const matched = findVocabAtWordBoundary(item.str, allVocab);
     if (matched) {
       const isMathTerm = VOCAB.수학_용어.includes(matched);
-      // 단계 3에서만 수학 핵심용어를 번역어로 교체
-      const shouldTranslate = currentStage === 3 && isMathTerm;
 
       splitTextByVocab(item.str, matched.ko).forEach(part => {
         if (part.isVocab) {
           const inner = document.createElement('span');
-          if (shouldTranslate) {
-            inner.className = 'has-vocab-translated';
-            inner.textContent = matched[currentLang] || matched.ko;
-          } else {
-            inner.className = 'has-vocab-inner';
-            inner.textContent = part.text;
-          }
+          inner.className = 'has-vocab-inner';
+          inner.textContent = part.text;
           inner.addEventListener('click', (e) => {
             e.stopPropagation();
             onTokenClick(e, matched, matched.ko);
