@@ -1650,15 +1650,6 @@ async function initSupabase() {
 
 async function onLoginSuccess(user) {
   currentUser = user;
-  const { data: roleData } = await supabaseClient
-    .from('students')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-  if (roleData?.role === 'teacher') {
-    window.location.href = '/teacher.html';
-    return;
-  }
   await loadStudentData(user.id);
   hideLoginOverlay();
   subscribeStudentRealtime(user.id);
@@ -1685,11 +1676,15 @@ function subscribeStudentRealtime(userId) {
 async function loadStudentData(userId) {
   const { data } = await supabaseClient
     .from('students')
-    .select('name, current_stage, session_count, stage_session_count, last_attended_date, current_lang')
+    .select('name, current_stage, session_count, stage_session_count, last_attended_date, role, current_lang')
     .eq('id', userId)
     .single();
 
   if (data) {
+    if (data.role === 'teacher') {
+      window.location.href = '/teacher.html';
+      return;
+    }
     if (data.current_lang) setLang(data.current_lang);
     setStage(data.current_stage || 1, false);
     sessionStartStage = currentStage;
