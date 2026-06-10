@@ -1537,6 +1537,9 @@ function setLang(lang) {
   renderVocabList();
   rerenderPdfTextOnly();
   if (currentStage === 3 && currentUser) loadReviewNote(currentReviewTab);
+  if (currentUser && supabaseClient) {
+    supabaseClient.from('students').update({ current_lang: lang }).eq('id', currentUser.id);
+  }
 }
 
 function setStage(stage, saveToDb = true) {
@@ -1649,16 +1652,36 @@ async function onLoginSuccess(user) {
   currentUser = user;
   await loadStudentData(user.id);
   hideLoginOverlay();
+  subscribeStudentRealtime(user.id);
+}
+
+function subscribeStudentRealtime(userId) {
+  supabaseClient
+    .channel('student-own-' + userId)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'students',
+      filter: 'id=eq.' + userId
+    }, (payload) => {
+      const newStage = payload.new.current_stage;
+      if (newStage && newStage !== currentStage) {
+        setStage(newStage, false);
+        showToast('교사가 단계를 ' + newStage + '단계로 변경했습니다.');
+      }
+    })
+    .subscribe();
 }
 
 async function loadStudentData(userId) {
   const { data } = await supabaseClient
     .from('students')
-    .select('name, current_stage, session_count, stage_session_count, last_attended_date')
+    .select('name, current_stage, session_count, stage_session_count, last_attended_date, current_lang')
     .eq('id', userId)
     .single();
 
   if (data) {
+    if (data.current_lang) setLang(data.current_lang);
     setStage(data.current_stage || 1, false);
     sessionStartStage = currentStage;
     stageStartTime = Date.now();
