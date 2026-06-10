@@ -1680,6 +1680,9 @@ async function loadStudentData(userId) {
     .eq('id', userId)
     .single();
 
+  console.log('student data:', data);
+  console.log('role:', data?.role);
+
   if (data) {
     if (data.role === 'teacher') {
       window.location.href = '/teacher.html';
