@@ -1650,7 +1650,8 @@ async function initSupabase() {
 
 async function onLoginSuccess(user) {
   currentUser = user;
-  await loadStudentData(user.id);
+  const result = await loadStudentData(user.id);
+  if (!result || result === 'teacher') return;
   hideLoginOverlay();
   subscribeStudentRealtime(user.id);
 }
@@ -1683,11 +1684,14 @@ async function loadStudentData(userId) {
   console.log('student data:', data);
   console.log('role:', data?.role);
 
+  if (!data) return null;
+
+  if (data.role === 'teacher') {
+    window.location.href = '/teacher.html';
+    return 'teacher';
+  }
+
   if (data) {
-    if (data.role === 'teacher') {
-      window.location.href = '/teacher.html';
-      return;
-    }
     if (data.current_lang) setLang(data.current_lang);
     setStage(data.current_stage || 1, false);
     sessionStartStage = currentStage;
@@ -1706,6 +1710,7 @@ async function loadStudentData(userId) {
   document.getElementById('user-info').classList.remove('hidden');
   document.getElementById('inline-stats').classList.remove('hidden');
   document.getElementById('session-end-btn').classList.remove('hidden');
+  return 'student';
 }
 
 async function autoCountSession(today) {
