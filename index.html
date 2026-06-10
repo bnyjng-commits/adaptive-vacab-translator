@@ -1650,6 +1650,15 @@ async function initSupabase() {
 
 async function onLoginSuccess(user) {
   currentUser = user;
+  const { data: roleData } = await supabaseClient
+    .from('students')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+  if (roleData?.role === 'teacher') {
+    window.location.href = '/teacher.html';
+    return;
+  }
   await loadStudentData(user.id);
   hideLoginOverlay();
   subscribeStudentRealtime(user.id);
