@@ -576,7 +576,7 @@
       body: JSON.stringify({ name, email, password, student_number, grade, class_number, lang })
     });
     const result = await res.json();
-    if (!result.success) { errEl.textContent = result.error || '등록 실패'; return; }
+    if (!result.success) { errEl.textContent = (result.error || '등록 실패') + (result.detail ? ' — ' + result.detail : ''); return; }
 
     showToast(name + ' 학생이 등록되었습니다.');
     closeRegModal();

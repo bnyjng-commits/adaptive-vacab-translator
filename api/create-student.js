@@ -50,7 +50,6 @@ export default async function handler(req, res) {
     body: JSON.stringify({
       id: userId,
       name,
-      email,
       role: 'student',
       student_number: student_number || null,
       grade: grade || null,
@@ -65,7 +64,7 @@ export default async function handler(req, res) {
   if (!insertRes.ok) {
     // 계정은 생성됐지만 DB 삽입 실패 — 에러만 반환 (계정은 남아있음)
     const err = await insertRes.json().catch(() => ({}));
-    res.status(500).json({ error: '계정은 생성됐으나 학생 정보 저장에 실패했습니다. Supabase에서 직접 확인해주세요.', detail: err });
+    res.status(500).json({ error: '계정은 생성됐으나 학생 정보 저장에 실패했습니다.', detail: JSON.stringify(err) });
     return;
   }
 
