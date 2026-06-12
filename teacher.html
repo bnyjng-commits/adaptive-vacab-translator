@@ -365,12 +365,17 @@
 
   async function loadAllStudents() {
     const today = new Date().toISOString().slice(0, 10);
-    const { data: students } = await supabaseClient
+    const { data: students, error: studentsError } = await supabaseClient
       .from('students')
       .select('id, name, role, student_number, grade, class_number, current_lang, current_stage, session_count')
       .eq('role', 'student')
       .order('grade').order('class_number').order('student_number');
 
+    if (studentsError) {
+      document.getElementById('student-tbody').innerHTML =
+        `<tr><td colspan="7" style="color:red;padding:16px;">SELECT 에러: ${studentsError.message} / ${studentsError.code} / ${JSON.stringify(studentsError.details)}</td></tr>`;
+      return;
+    }
     if (!students) return;
 
     // 오늘 복습노트 클릭 수 일괄 조회
@@ -576,7 +581,7 @@
       body: JSON.stringify({ name, email, password, student_number, grade, class_number, lang })
     });
     const result = await res.json();
-    if (!result.success) { errEl.textContent = (result.error || '등록 실패') + (result.detail ? ' — ' + result.detail : ''); return; }
+    if (!result.success) { errEl.textContent = `${result.error || '등록 실패'} (${result.code || ''}) hint: ${result.hint || ''}`; return; }
 
     showToast(name + ' 학생이 등록되었습니다.');
     closeRegModal();

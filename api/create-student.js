@@ -62,9 +62,14 @@ export default async function handler(req, res) {
   });
 
   if (!insertRes.ok) {
-    // 계정은 생성됐지만 DB 삽입 실패 — 에러만 반환 (계정은 남아있음)
     const err = await insertRes.json().catch(() => ({}));
-    res.status(500).json({ error: '계정은 생성됐으나 학생 정보 저장에 실패했습니다.', detail: JSON.stringify(err) });
+    res.status(200).json({
+      success: false,
+      error: err.message || '계정은 생성됐으나 학생 정보 저장에 실패했습니다.',
+      code: err.code,
+      detail: err.details,
+      hint: err.hint
+    });
     return;
   }
 
