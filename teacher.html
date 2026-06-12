@@ -364,7 +364,6 @@
   }
 
   async function loadAllStudents() {
-    console.log('loadAllStudents 시작');
     const tbody = document.getElementById('student-tbody');
     tbody.innerHTML = '<tr><td colspan="7" style="padding:16px;">쿼리 실행 중...</td></tr>';
 
@@ -380,7 +379,6 @@
       .order('grade').order('class_number').order('student_number');
 
     clearTimeout(timeout);
-    console.log('students 쿼리 결과:', students, studentsError);
 
     if (studentsError) {
       tbody.innerHTML = `<tr><td colspan="7" style="color:red;padding:16px;">SELECT 에러: ${studentsError.message} / ${studentsError.code} / ${JSON.stringify(studentsError.details)}</td></tr>`;
