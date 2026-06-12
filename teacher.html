@@ -344,6 +344,7 @@
 
   async function doLogout() {
     await supabaseClient.auth.signOut();
+    location.href = '/index.html';
   }
 
   async function onTeacherLoginSuccess(user) {
