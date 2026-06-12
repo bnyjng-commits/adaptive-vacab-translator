@@ -27,32 +27,6 @@
       min-height: 100vh;
     }
 
-    /* 로그인 오버레이 */
-    #login-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
-      display: flex; align-items: center; justify-content: center; z-index: 200;
-    }
-    #login-overlay.hidden { display: none; }
-    .login-card {
-      background: var(--surface); border-radius: 16px; padding: 40px 36px;
-      width: 340px; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-    }
-    .login-card h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; }
-    .login-card p { font-size: 0.85rem; color: var(--text-sub); margin-bottom: 24px; }
-    .login-card input {
-      width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
-      padding: 10px 14px; font-size: 0.95rem; margin-bottom: 12px; outline: none;
-      font-family: inherit;
-    }
-    .login-card input:focus { border-color: var(--accent); }
-    .login-card button.primary {
-      width: 100%; background: var(--accent); color: #fff; border: none;
-      border-radius: 8px; padding: 12px; font-size: 1rem; font-weight: 700;
-      cursor: pointer; font-family: inherit;
-    }
-    .login-card button.primary:hover { background: #3a5ce8; }
-    #login-error { color: #e53e3e; font-size: 0.82rem; margin-top: 8px; min-height: 18px; }
-
     /* 헤더 */
     header {
       background: var(--surface); border-bottom: 1.5px solid var(--border);
@@ -202,20 +176,9 @@
       thead th:nth-child(n+5), tbody td:nth-child(n+5) { display: none; }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
-
-<!-- 로그인 오버레이 -->
-<div id="login-overlay">
-  <div class="login-card">
-    <h2>교사 로그인</h2>
-    <p>교사 계정으로 로그인해주세요.</p>
-    <input type="email" id="login-email" placeholder="이메일" autocomplete="email">
-    <input type="password" id="login-password" placeholder="비밀번호" autocomplete="current-password">
-    <button class="primary" onclick="doLogin()">로그인</button>
-    <div id="login-error"></div>
-  </div>
-</div>
 
 <!-- 헤더 -->
 <header>
@@ -367,25 +330,17 @@
     supabaseClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) await onTeacherLoginSuccess(session.user);
-      else if (event === 'SIGNED_OUT') { loginHandled = false; location.reload(); }
+      else if (event === 'SIGNED_OUT') { loginHandled = false; location.href = '/index.html'; }
     });
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
       await onTeacherLoginSuccess(session.user);
     } else {
-      document.getElementById('login-overlay').classList.remove('hidden');
+      location.href = '/index.html';
     }
   }
 
-  async function doLogin() {
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
-    const errEl = document.getElementById('login-error');
-    errEl.textContent = '';
-    if (!supabaseClient) { errEl.textContent = '서버 연결 중입니다. 잠시 후 다시 시도해주세요.'; return; }
-    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) { errEl.textContent = '로그인 실패: ' + error.message; }
-  }
+  document.addEventListener('DOMContentLoaded', () => initSupabase());
 
   async function doLogout() {
     await supabaseClient.auth.signOut();
@@ -398,13 +353,11 @@
     if (!data || data.role !== 'teacher') {
       loginHandled = false;
       await supabaseClient.auth.signOut();
-      document.getElementById('login-overlay').classList.remove('hidden');
-      document.getElementById('login-error').textContent = '교사 계정이 아닙니다. 학생은 메인 페이지를 이용해주세요.';
+      location.href = '/index.html';
       return;
     }
     currentTeacher = { ...user, name: data.name };
     document.getElementById('teacher-name').textContent = data.name;
-    document.getElementById('login-overlay').classList.add('hidden');
     await loadAllStudents();
     subscribeStudentsRealtime();
   }
@@ -656,7 +609,5 @@
     if (e.target === this) closeRegModal();
   });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
-        onload="initSupabase()"></script>
 </body>
 </html>
