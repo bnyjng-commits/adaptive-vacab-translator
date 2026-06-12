@@ -350,10 +350,9 @@
 <div id="toast"></div>
 
 <script>
-  // Supabase CDN
-  const { createClient } = window.supabase || {};
   let supabaseClient = null;
   let currentTeacher = null;
+  let loginHandled = false;
   let allStudents = [];
   let currentFilter = 'all';
   let detailStudent = null;
@@ -365,17 +364,17 @@
   async function initSupabase() {
     const res = await fetch('/api/config');
     const cfg = await res.json();
-    supabaseClient = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+    supabaseClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) await onTeacherLoginSuccess(session.user);
+      else if (event === 'SIGNED_OUT') { loginHandled = false; location.reload(); }
+    });
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
       await onTeacherLoginSuccess(session.user);
     } else {
       document.getElementById('login-overlay').classList.remove('hidden');
     }
-    supabaseClient.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) await onTeacherLoginSuccess(session.user);
-      else if (event === 'SIGNED_OUT') location.reload();
-    });
   }
 
   async function doLogin() {
@@ -383,6 +382,7 @@
     const password = document.getElementById('login-password').value;
     const errEl = document.getElementById('login-error');
     errEl.textContent = '';
+    if (!supabaseClient) { errEl.textContent = '서버 연결 중입니다. 잠시 후 다시 시도해주세요.'; return; }
     const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
     if (error) { errEl.textContent = '로그인 실패: ' + error.message; }
   }
@@ -392,9 +392,13 @@
   }
 
   async function onTeacherLoginSuccess(user) {
+    if (loginHandled) return;
+    loginHandled = true;
     const { data } = await supabaseClient.from('students').select('name, role').eq('id', user.id).single();
     if (!data || data.role !== 'teacher') {
+      loginHandled = false;
       await supabaseClient.auth.signOut();
+      document.getElementById('login-overlay').classList.remove('hidden');
       document.getElementById('login-error').textContent = '교사 계정이 아닙니다. 학생은 메인 페이지를 이용해주세요.';
       return;
     }
