@@ -6,6 +6,7 @@
   <title>교사 대시보드 — 수학 Ⅳ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <style>
     :root {
       --bg: #f4f6fb;
@@ -20,12 +21,7 @@
       --accent-light: #eef1fe;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Noto Sans KR', sans-serif;
-      background: var(--bg);
-      color: var(--text-main);
-      min-height: 100vh;
-    }
+    body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: var(--text-main); min-height: 100vh; }
 
     /* 헤더 */
     header {
@@ -38,16 +34,19 @@
     .header-left h1 { font-size: 1.1rem; font-weight: 700; }
     #teacher-name { font-size: 0.9rem; color: var(--text-sub); }
     .header-right { display: flex; align-items: center; gap: 10px; }
+
+    /* 공통 버튼 */
     .btn { border: none; border-radius: 8px; padding: 8px 16px; font-size: 0.9rem; cursor: pointer; font-family: inherit; font-weight: 500; }
     .btn-primary { background: var(--accent); color: #fff; }
     .btn-primary:hover { background: #3a5ce8; }
     .btn-outline { background: transparent; color: var(--text-sub); border: 1.5px solid var(--border); }
     .btn-outline:hover { background: var(--surface2); }
+    .btn-full { width: 100%; margin-top: 12px; }
 
-    /* 메인 콘텐츠 */
+    /* 메인 */
     main { padding: 24px 28px; max-width: 1200px; margin: 0 auto; }
 
-    /* 필터 버튼 */
+    /* 필터 바 */
     .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
     .filter-btn {
       background: var(--surface); border: 1.5px solid var(--border);
@@ -88,8 +87,10 @@
       background: var(--accent-light); color: var(--accent);
       border-radius: 4px; padding: 2px 6px; font-size: 0.72rem; font-weight: 500;
     }
+    .history-empty { color: var(--text-light); font-size: 0.8rem; }
+    .empty-row td { text-align: center; color: var(--text-light); padding: 40px; }
 
-    /* 상세 모달 */
+    /* 모달 공통 */
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.45);
       display: flex; align-items: center; justify-content: center; z-index: 150;
@@ -104,7 +105,11 @@
     .modal-header h2 { font-size: 1.2rem; font-weight: 700; }
     .modal-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text-light); padding: 2px 6px; }
     .modal-section { margin-bottom: 20px; }
-    .modal-section h3 { font-size: 0.82rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+    .modal-section h3 {
+      font-size: 0.82rem; font-weight: 700; color: var(--text-sub);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;
+    }
+    .modal-meta { font-size: 0.88rem; color: var(--text-sub); }
 
     /* 단계 조정 */
     .stage-adjuster { display: flex; align-items: center; gap: 16px; }
@@ -121,14 +126,13 @@
     .timeline-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
     .timeline-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
     .timeline-time { color: var(--text-light); font-size: 0.78rem; width: 52px; }
+    .timeline-empty { font-size: 0.85rem; color: var(--text-light); }
 
     /* 체류 시간 그리드 */
     .duration-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .duration-cell {
-      background: var(--surface2); border-radius: 8px; padding: 10px 12px; text-align: center;
-    }
-    .duration-cell .d-label { font-size: 0.75rem; color: var(--text-sub); margin-bottom: 4px; }
-    .duration-cell .d-val { font-size: 1.1rem; font-weight: 700; }
+    .duration-cell { background: var(--surface2); border-radius: 8px; padding: 10px 12px; text-align: center; }
+    .d-label { font-size: 0.75rem; color: var(--text-sub); margin-bottom: 4px; }
+    .d-val { font-size: 1.1rem; font-weight: 700; }
 
     /* 복습노트 탭 */
     .review-tabs-modal { display: flex; gap: 4px; margin-bottom: 10px; }
@@ -143,9 +147,11 @@
       display: flex; justify-content: space-between; align-items: center;
       background: var(--surface2); border-radius: 6px; padding: 6px 10px; font-size: 0.85rem;
     }
+    .review-word-sub { color: var(--text-sub); }
     .review-cnt { font-size: 0.75rem; color: var(--text-sub); background: var(--border); border-radius: 10px; padding: 1px 7px; }
+    .review-empty { font-size: 0.85rem; color: var(--text-light); padding: 8px; }
 
-    /* 학생 등록 모달 */
+    /* 폼 공통 */
     .form-row { margin-bottom: 14px; }
     .form-row label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-sub); margin-bottom: 5px; }
     .form-row input, .form-row select {
@@ -154,7 +160,21 @@
     }
     .form-row input:focus, .form-row select:focus { border-color: var(--accent); }
     .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    #reg-error { color: #e53e3e; font-size: 0.82rem; margin-top: 6px; min-height: 16px; }
+    .form-error { color: #e53e3e; font-size: 0.82rem; margin-top: 6px; min-height: 16px; }
+
+    /* 로그인 오버레이 */
+    #login-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; z-index: 200;
+    }
+    #login-overlay.hidden { display: none; }
+    .login-card {
+      background: var(--surface); border-radius: 16px; padding: 36px;
+      width: 380px; max-width: 94vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    .login-card h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 6px; }
+    .login-sub { font-size: 0.85rem; color: var(--text-sub); margin-bottom: 24px; }
 
     /* 토스트 */
     #toast {
@@ -165,36 +185,39 @@
     }
     #toast.show { opacity: 1; }
 
-    /* 빈 상태 */
-    .empty-row td { text-align: center; color: var(--text-light); padding: 40px; }
-
     /* 반응형 */
+    @media (max-width: 900px) {
+      main { padding: 20px 18px; }
+    }
     @media (max-width: 720px) {
       main { padding: 16px 12px; }
       header { padding: 0 14px; }
       .modal { padding: 18px; }
       thead th:nth-child(n+5), tbody td:nth-child(n+5) { display: none; }
     }
-
-    /* 로그인 오버레이 */
-    #login-overlay {
-      position: fixed; inset: 0; background: var(--bg);
-      display: flex; align-items: center; justify-content: center; z-index: 200;
-    }
-    #login-overlay.hidden { display: none; }
-    .login-card {
-      background: var(--surface); border-radius: 16px; padding: 36px;
-      width: 360px; max-width: 94vw;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-    }
-    .login-card h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
-    .login-sub { font-size: 0.85rem; color: var(--text-sub); margin-bottom: 24px; }
-    #login-error { color: #e53e3e; font-size: 0.82rem; margin-top: 6px; min-height: 16px; }
-    .btn-full { width: 100%; margin-top: 12px; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
+
+<!-- 로그인 오버레이: 세션 없거나 getSession 타임아웃 시 표시 -->
+<div id="login-overlay" class="hidden">
+  <div class="login-card">
+    <h2>교사 로그인</h2>
+    <p class="login-sub">세션이 만료되었거나 로그인이 필요합니다.</p>
+    <div class="form-row">
+      <label>이메일</label>
+      <input type="email" id="login-email" placeholder="teacher@example.com"
+             onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <div class="form-row">
+      <label>비밀번호</label>
+      <input type="password" id="login-password" placeholder="비밀번호"
+             onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <div class="form-error" id="login-error"></div>
+    <button class="btn btn-primary btn-full" onclick="doLogin()">로그인</button>
+  </div>
+</div>
 
 <!-- 헤더 -->
 <header>
@@ -240,12 +263,10 @@
       <h2 id="modal-student-name">—</h2>
       <button class="modal-close" onclick="closeDetailModal()">✕</button>
     </div>
-
     <div class="modal-section">
       <h3>기본 정보</h3>
-      <p id="modal-basic-info" style="font-size:0.88rem; color:var(--text-sub);"></p>
+      <p class="modal-meta" id="modal-basic-info"></p>
     </div>
-
     <div class="modal-section">
       <h3>단계 조정</h3>
       <div class="stage-adjuster">
@@ -254,17 +275,14 @@
         <button id="stage-inc" onclick="adjustStage(1)">▶</button>
       </div>
     </div>
-
-    <div class="modal-section" id="modal-timeline-section">
+    <div class="modal-section">
       <h3>오늘 단계 이력</h3>
       <div class="timeline" id="modal-timeline"></div>
     </div>
-
-    <div class="modal-section" id="modal-duration-section">
+    <div class="modal-section">
       <h3>단계별 체류 시간</h3>
       <div class="duration-grid" id="modal-duration-grid"></div>
     </div>
-
     <div class="modal-section">
       <h3>복습노트</h3>
       <div class="review-tabs-modal">
@@ -321,28 +339,8 @@
         <option value="ru">러시아어</option>
       </select>
     </div>
-    <div id="reg-error"></div>
-    <button class="btn btn-primary" style="width:100%; margin-top:12px;" onclick="submitReg()">등록</button>
-  </div>
-</div>
-
-<!-- 로그인 오버레이 (세션 없거나 getSession 타임아웃 시) -->
-<div id="login-overlay" class="hidden">
-  <div class="login-card">
-    <h2>교사 로그인</h2>
-    <p class="login-sub">세션이 만료되었거나 로그인이 필요합니다.</p>
-    <div class="form-row">
-      <label>이메일</label>
-      <input type="email" id="login-email" placeholder="teacher@example.com"
-             onkeydown="if(event.key==='Enter') doLogin()">
-    </div>
-    <div class="form-row">
-      <label>비밀번호</label>
-      <input type="password" id="login-password" placeholder="비밀번호"
-             onkeydown="if(event.key==='Enter') doLogin()">
-    </div>
-    <div id="login-error"></div>
-    <button class="btn btn-primary btn-full" onclick="doLogin()">로그인</button>
+    <div class="form-error" id="reg-error"></div>
+    <button class="btn btn-primary btn-full" onclick="submitReg()">등록</button>
   </div>
 </div>
 
@@ -358,12 +356,14 @@
   let detailReviewTab = 'today';
 
   const LANG_LABEL = { de: '독일어', en: '영어', zh: '중국어', ja: '일본어', vi: '베트남어', ru: '러시아어' };
-  const STAGE_LABEL = { 1: '1단계', 2: '2단계', 3: '3단계' };
+
+  // ── 초기화 ──────────────────────────────────────────────────────────────────
 
   async function initSupabase() {
     const res = await fetch('/api/config');
     const cfg = await res.json();
     supabaseClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         document.getElementById('login-overlay').classList.add('hidden');
@@ -373,17 +373,23 @@
         location.href = '/index.html';
       }
     });
-    // 5초 안에 getSession 응답 없으면 null session으로 처리 (리다이렉트 없이 오버레이 표시)
+
+    // 5초 안에 응답 없으면 세션 없음으로 처리 — 리다이렉트 대신 로그인 오버레이
     const sessionTimeout = new Promise(resolve =>
       setTimeout(() => resolve({ data: { session: null } }), 5000)
     );
     const { data } = await Promise.race([supabaseClient.auth.getSession(), sessionTimeout]);
+
     if (data?.session) {
       await onTeacherLoginSuccess(data.session.user);
     } else {
       showLoginOverlay();
     }
   }
+
+  initSupabase();
+
+  // ── 로그인 오버레이 ─────────────────────────────────────────────────────────
 
   function showLoginOverlay() {
     document.getElementById('login-overlay').classList.remove('hidden');
@@ -395,69 +401,73 @@
     const password = document.getElementById('login-password').value;
     const errEl = document.getElementById('login-error');
     errEl.textContent = '';
-    if (!email || !password) { errEl.textContent = '이메일과 비밀번호를 입력해 주세요.'; return; }
+
+    if (!email || !password) {
+      errEl.textContent = '이메일과 비밀번호를 입력해 주세요.';
+      return;
+    }
     const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) { errEl.textContent = '로그인 실패: ' + error.message; }
-    // 성공 시 onAuthStateChange → SIGNED_IN → 오버레이 닫고 대시보드 진입
+    if (error) {
+      errEl.textContent = '로그인 실패: ' + error.message;
+    }
+    // 성공 시 onAuthStateChange(SIGNED_IN) → 오버레이 숨김 → onTeacherLoginSuccess
   }
 
-  initSupabase();
-
-  async function doLogout() {
-    await supabaseClient.auth.signOut();
-    location.href = '/index.html';
-  }
+  // ── 인증 성공 처리 ──────────────────────────────────────────────────────────
 
   async function onTeacherLoginSuccess(user) {
     if (loginHandled) return;
     loginHandled = true;
-    const { data } = await supabaseClient.from('students').select('name, role').eq('id', user.id).single();
+
+    const { data } = await supabaseClient
+      .from('students')
+      .select('name, role')
+      .eq('id', user.id)
+      .single();
+
     if (!data || data.role !== 'teacher') {
       loginHandled = false;
       await supabaseClient.auth.signOut();
-      location.href = '/index.html';
       return;
     }
+
     currentTeacher = { ...user, name: data.name };
     document.getElementById('teacher-name').textContent = data.name;
     await loadAllStudents();
     subscribeStudentsRealtime();
   }
 
+  async function doLogout() {
+    await supabaseClient.auth.signOut();
+    location.href = '/index.html';
+  }
+
+  // ── 학생 목록 ───────────────────────────────────────────────────────────────
+
   async function loadAllStudents() {
     const tbody = document.getElementById('student-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" style="padding:16px;">쿼리 실행 중...</td></tr>';
-
-    const timeout = setTimeout(() => {
-      tbody.innerHTML = '<tr><td colspan="7" style="color:red;padding:16px;">쿼리 타임아웃 — Supabase 응답 없음</td></tr>';
-    }, 5000);
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">쿼리 실행 중...</td></tr>';
 
     const today = new Date().toISOString().slice(0, 10);
-    const { data: students, error: studentsError } = await supabaseClient
+    const { data: students, error } = await supabaseClient
       .from('students')
       .select('id, name, role, student_number, grade, class_number, current_lang, current_stage, session_count')
       .eq('role', 'student')
       .order('grade').order('class_number').order('student_number');
 
-    clearTimeout(timeout);
-
-    if (studentsError) {
-      tbody.innerHTML = `<tr><td colspan="7" style="color:red;padding:16px;">SELECT 에러: ${studentsError.message} / ${studentsError.code} / ${JSON.stringify(studentsError.details)}</td></tr>`;
+    if (error) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="7">오류: ${error.message}</td></tr>`;
       return;
     }
-    if (!students) return;
+    if (!students || students.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">등록된 학생이 없습니다.</td></tr>';
+      return;
+    }
 
-    // 오늘 복습노트 클릭 수 일괄 조회
-    const { data: clicks } = await supabaseClient
-      .from('vocab_clicks')
-      .select('student_id')
-      .gte('clicked_at', today + 'T00:00:00');
-
-    // 오늘 세션 로그 (단계 이력) 일괄 조회
-    const { data: logs } = await supabaseClient
-      .from('session_logs')
-      .select('student_id, stage_changes, stage_durations')
-      .eq('date', today);
+    const [{ data: clicks }, { data: logs }] = await Promise.all([
+      supabaseClient.from('vocab_clicks').select('student_id').gte('clicked_at', today + 'T00:00:00'),
+      supabaseClient.from('session_logs').select('student_id, stage_changes, stage_durations').eq('date', today)
+    ]);
 
     const clickMap = {};
     (clicks || []).forEach(c => { clickMap[c.student_id] = (clickMap[c.student_id] || 0) + 1; });
@@ -476,17 +486,16 @@
 
   function buildFilterButtons() {
     const bar = document.getElementById('filter-bar');
-    const grades = [...new Set(allStudents.map(s => s.grade).filter(Boolean))].sort();
     const existing = [...bar.querySelectorAll('[data-filter]')].map(b => b.dataset.filter);
+    const grades = [...new Set(allStudents.map(s => s.grade).filter(Boolean))].sort();
     grades.forEach(g => {
-      if (!existing.includes('grade-' + g)) {
-        const btn = document.createElement('button');
-        btn.className = 'filter-btn';
-        btn.dataset.filter = 'grade-' + g;
-        btn.textContent = g + '학년';
-        btn.onclick = function() { applyFilter(this, 'grade-' + g); };
-        bar.appendChild(btn);
-      }
+      if (existing.includes('grade-' + g)) return;
+      const btn = document.createElement('button');
+      btn.className = 'filter-btn';
+      btn.dataset.filter = 'grade-' + g;
+      btn.textContent = g + '학년';
+      btn.onclick = function() { applyFilter(this, 'grade-' + g); };
+      bar.appendChild(btn);
     });
   }
 
@@ -499,28 +508,25 @@
 
   function renderTable() {
     const tbody = document.getElementById('student-tbody');
-    let list = allStudents;
-    if (currentFilter !== 'all') {
-      const grade = parseInt(currentFilter.replace('grade-', ''));
-      list = allStudents.filter(s => s.grade === grade);
-    }
+    const list = currentFilter === 'all'
+      ? allStudents
+      : allStudents.filter(s => s.grade === parseInt(currentFilter.replace('grade-', '')));
+
     if (list.length === 0) {
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">학생이 없습니다.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">해당 학년 학생이 없습니다.</td></tr>';
       return;
     }
     tbody.innerHTML = list.map(s => {
-      const stageCls = 'stage-' + (s.current_stage || 1);
-      const stageTxt = s.current_stage || 1;
-      const langTxt = LANG_LABEL[s.current_lang] || s.current_lang || '—';
+      const stage = s.current_stage || 1;
       const changes = s.todayLog?.stage_changes || [];
-      const chipsHtml = changes.map(c =>
-        `<span class="history-chip">${c.at || ''} ${c.from}→${c.to}</span>`
-      ).join('') || '<span style="color:var(--text-light);font-size:0.8rem;">—</span>';
+      const chipsHtml = changes.length
+        ? changes.map(c => `<span class="history-chip">${c.at || ''} ${c.from}→${c.to}</span>`).join('')
+        : '<span class="history-empty">—</span>';
       return `<tr onclick="openDetailModal('${s.id}')">
         <td>${s.student_number || '—'}</td>
         <td><strong>${s.name}</strong></td>
-        <td><span class="lang-badge">${langTxt}</span></td>
-        <td><span class="stage-badge ${stageCls}">${stageTxt}</span></td>
+        <td><span class="lang-badge">${LANG_LABEL[s.current_lang] || s.current_lang || '—'}</span></td>
+        <td><span class="stage-badge stage-${stage}">${stage}</span></td>
         <td><div class="history-chips">${chipsHtml}</div></td>
         <td>${s.todayClicks}</td>
         <td>${s.session_count || 0}차시</td>
@@ -528,40 +534,41 @@
     }).join('');
   }
 
+  // ── 학생 상세 모달 ──────────────────────────────────────────────────────────
+
   async function openDetailModal(studentId) {
     detailStudent = allStudents.find(s => s.id === studentId);
     if (!detailStudent) return;
+
+    const stage = detailStudent.current_stage || 1;
     document.getElementById('detail-modal').classList.remove('hidden');
     document.getElementById('modal-student-name').textContent = detailStudent.name;
     document.getElementById('modal-basic-info').textContent =
       `${detailStudent.grade || '?'}학년 ${detailStudent.class_number || '?'}반 | 학번: ${detailStudent.student_number || '—'} | 언어: ${LANG_LABEL[detailStudent.current_lang] || '—'}`;
-    document.getElementById('modal-stage-val').textContent = detailStudent.current_stage || 1;
-    document.getElementById('stage-dec').disabled = (detailStudent.current_stage || 1) <= 1;
-    document.getElementById('stage-inc').disabled = (detailStudent.current_stage || 1) >= 3;
+    document.getElementById('modal-stage-val').textContent = stage;
+    document.getElementById('stage-dec').disabled = stage <= 1;
+    document.getElementById('stage-inc').disabled = stage >= 3;
 
-    const log = detailStudent.todayLog;
-    // 타임라인
-    const timeline = document.getElementById('modal-timeline');
-    const changes = log?.stage_changes || [];
-    if (changes.length > 0) {
-      timeline.innerHTML = changes.map(c =>
-        `<div class="timeline-item"><div class="timeline-dot"></div><span class="timeline-time">${c.at}</span><span>${c.from}단계 → ${c.to}단계</span></div>`
-      ).join('');
-    } else {
-      timeline.innerHTML = '<span style="font-size:0.85rem;color:var(--text-light);">이력 없음</span>';
-    }
+    const changes = detailStudent.todayLog?.stage_changes || [];
+    document.getElementById('modal-timeline').innerHTML = changes.length
+      ? changes.map(c =>
+          `<div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <span class="timeline-time">${c.at}</span>
+            <span>${c.from}단계 → ${c.to}단계</span>
+          </div>`
+        ).join('')
+      : '<span class="timeline-empty">이력 없음</span>';
 
-    // 체류 시간 그리드
-    const grid = document.getElementById('modal-duration-grid');
-    const durations = log?.stage_durations || {};
-    grid.innerHTML = [1, 2, 3].map(n => {
+    const durations = detailStudent.todayLog?.stage_durations || {};
+    document.getElementById('modal-duration-grid').innerHTML = [1, 2, 3].map(n => {
       const sec = durations[String(n)] || 0;
-      const min = Math.floor(sec / 60);
-      const s = sec % 60;
-      return `<div class="duration-cell"><div class="d-label">${n}단계</div><div class="d-val">${min}분 ${s}초</div></div>`;
+      return `<div class="duration-cell">
+        <div class="d-label">${n}단계</div>
+        <div class="d-val">${Math.floor(sec / 60)}분 ${sec % 60}초</div>
+      </div>`;
     }).join('');
 
-    // 복습노트
     await loadModalReview(detailStudent.id, detailReviewTab);
   }
 
@@ -591,6 +598,8 @@
     showToast(detailStudent.name + ' 학생의 단계를 ' + next + '단계로 변경했습니다.');
   }
 
+  // ── 복습노트 ────────────────────────────────────────────────────────────────
+
   async function switchReviewTab(el) {
     document.querySelectorAll('.rtab').forEach(b => b.classList.remove('active'));
     el.classList.add('active');
@@ -600,33 +609,41 @@
 
   async function loadModalReview(studentId, period) {
     const today = new Date().toISOString().slice(0, 10);
-    let query = supabaseClient.from('vocab_clicks').select('ko, translation, click_count, clicked_at').eq('student_id', studentId);
+    let query = supabaseClient.from('vocab_clicks')
+      .select('ko, translation, click_count, clicked_at')
+      .eq('student_id', studentId);
+
     if (period === 'today') {
       query = query.eq('clicked_date', today);
     } else if (period === 'week') {
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
       query = query.gte('clicked_date', weekAgo);
     }
-    query = query.order('click_count', { ascending: false }).limit(30);
-    const { data } = await query;
+    const { data } = await query.order('click_count', { ascending: false }).limit(30);
     renderModalReview(data || []);
   }
 
   function renderModalReview(items) {
     const list = document.getElementById('modal-review-list');
     if (items.length === 0) {
-      list.innerHTML = '<span style="font-size:0.85rem;color:var(--text-light);padding:8px;">데이터 없음</span>';
+      list.innerHTML = '<span class="review-empty">데이터 없음</span>';
       return;
     }
     list.innerHTML = items.map(i =>
-      `<div class="review-item-modal"><span>${i.ko} <small style="color:var(--text-sub);">(${i.translation})</small></span><span class="review-cnt">${i.click_count}회</span></div>`
+      `<div class="review-item-modal">
+        <span>${i.ko} <small class="review-word-sub">(${i.translation})</small></span>
+        <span class="review-cnt">${i.click_count}회</span>
+      </div>`
     ).join('');
   }
+
+  // ── 학생 등록 ───────────────────────────────────────────────────────────────
 
   function openRegModal() {
     document.getElementById('reg-modal').classList.remove('hidden');
     document.getElementById('reg-error').textContent = '';
   }
+
   function closeRegModal() {
     document.getElementById('reg-modal').classList.add('hidden');
   }
@@ -642,7 +659,10 @@
     const errEl = document.getElementById('reg-error');
     errEl.textContent = '';
 
-    if (!name || !email || !password) { errEl.textContent = '이름, 이메일, 비밀번호는 필수입니다.'; return; }
+    if (!name || !email || !password) {
+      errEl.textContent = '이름, 이메일, 비밀번호는 필수입니다.';
+      return;
+    }
 
     const res = await fetch('/api/create-student', {
       method: 'POST',
@@ -650,24 +670,27 @@
       body: JSON.stringify({ name, email, password, student_number, grade, class_number, lang })
     });
     const result = await res.json();
-    if (!result.success) { errEl.textContent = `${result.error || '등록 실패'} (${result.code || ''}) hint: ${result.hint || ''}`; return; }
+    if (!result.success) {
+      errEl.textContent = `${result.error || '등록 실패'} (${result.code || ''}) hint: ${result.hint || ''}`;
+      return;
+    }
 
     showToast(name + ' 학생이 등록되었습니다.');
     closeRegModal();
     await loadAllStudents();
   }
 
+  // ── 실시간 구독 ─────────────────────────────────────────────────────────────
+
   function subscribeStudentsRealtime() {
     supabaseClient.channel('teacher-students-watch')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'students'
-      }, async () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, async () => {
         await loadAllStudents();
       })
       .subscribe();
   }
+
+  // ── 유틸 ────────────────────────────────────────────────────────────────────
 
   function showToast(msg) {
     const t = document.getElementById('toast');
@@ -676,7 +699,6 @@
     setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-  // 모달 외부 클릭 시 닫기
   document.getElementById('detail-modal').addEventListener('click', function(e) {
     if (e.target === this) closeDetailModal();
   });
