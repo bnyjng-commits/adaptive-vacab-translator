@@ -332,7 +332,17 @@
       if (event === 'SIGNED_IN' && session) await onTeacherLoginSuccess(session.user);
       else if (event === 'SIGNED_OUT') { loginHandled = false; location.href = '/index.html'; }
     });
-    const { data: { session } } = await supabaseClient.auth.getSession();
+    const sessionTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('getSession timeout')), 5000)
+    );
+    let session;
+    try {
+      const { data } = await Promise.race([supabaseClient.auth.getSession(), sessionTimeout]);
+      session = data.session;
+    } catch {
+      location.href = '/index.html';
+      return;
+    }
     if (session) {
       await onTeacherLoginSuccess(session.user);
     } else {
