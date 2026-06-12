@@ -364,6 +364,14 @@
   }
 
   async function loadAllStudents() {
+    console.log('loadAllStudents 시작');
+    const tbody = document.getElementById('student-tbody');
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:16px;">쿼리 실행 중...</td></tr>';
+
+    const timeout = setTimeout(() => {
+      tbody.innerHTML = '<tr><td colspan="7" style="color:red;padding:16px;">쿼리 타임아웃 — Supabase 응답 없음</td></tr>';
+    }, 5000);
+
     const today = new Date().toISOString().slice(0, 10);
     const { data: students, error: studentsError } = await supabaseClient
       .from('students')
@@ -371,9 +379,11 @@
       .eq('role', 'student')
       .order('grade').order('class_number').order('student_number');
 
+    clearTimeout(timeout);
+    console.log('students 쿼리 결과:', students, studentsError);
+
     if (studentsError) {
-      document.getElementById('student-tbody').innerHTML =
-        `<tr><td colspan="7" style="color:red;padding:16px;">SELECT 에러: ${studentsError.message} / ${studentsError.code} / ${JSON.stringify(studentsError.details)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="color:red;padding:16px;">SELECT 에러: ${studentsError.message} / ${studentsError.code} / ${JSON.stringify(studentsError.details)}</td></tr>`;
       return;
     }
     if (!students) return;
