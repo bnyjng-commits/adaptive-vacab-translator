@@ -1788,6 +1788,7 @@ async function doLogin() {
 
 async function doLogout() {
   await supabaseClient.auth.signOut();
+  localStorage.removeItem('teacher-auth');
 }
 
 // ── 단계 사용 기록 ────────────────────────────────────────────────
