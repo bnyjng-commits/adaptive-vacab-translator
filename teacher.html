@@ -340,7 +340,7 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => initSupabase());
+  initSupabase();
 
   async function doLogout() {
     await supabaseClient.auth.signOut();
