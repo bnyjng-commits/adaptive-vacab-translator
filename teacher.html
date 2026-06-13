@@ -621,7 +621,7 @@
   async function loadModalReview(studentId, period) {
     const today = new Date().toISOString().slice(0, 10);
     let query = supabaseClient.from('vocab_clicks')
-      .select('ko, translation, click_count, clicked_at')
+      .select('ko, translation, count, clicked_at')
       .eq('student_id', studentId);
 
     if (period === 'today') {
@@ -630,7 +630,7 @@
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
       query = query.gte('clicked_date', weekAgo);
     }
-    const { data } = await query.order('click_count', { ascending: false }).limit(30);
+    const { data } = await query.order('count', { ascending: false }).limit(30);
     renderModalReview(data || []);
   }
 
@@ -643,7 +643,7 @@
     list.innerHTML = items.map(i =>
       `<div class="review-item-modal">
         <span>${i.ko} <small class="review-word-sub">(${i.translation})</small></span>
-        <span class="review-cnt">${i.click_count}회</span>
+        <span class="review-cnt">${i.count}회</span>
       </div>`
     ).join('');
   }
