@@ -446,6 +446,10 @@
 
   async function doLogout() {
     await supabaseClient.auth.signOut();
+    localStorage.removeItem('teacher-auth');
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('sb-'))
+      .forEach(k => localStorage.removeItem(k));
     location.href = '/index.html';
   }
 
