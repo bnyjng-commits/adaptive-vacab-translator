@@ -799,6 +799,16 @@
     min-height: 20px;
   }
 
+  .login-teacher-link {
+    display: block;
+    text-align: center;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--text-sub);
+    text-decoration: none;
+  }
+  .login-teacher-link:hover { text-decoration: underline; }
+
   /* ── 사용자 정보 (헤더) ── */
   .user-info {
     display: flex;
@@ -1065,6 +1075,7 @@
     <input class="login-field" type="password" id="login-password" placeholder="비밀번호" autocomplete="current-password">
     <button class="login-submit" id="login-btn" onclick="doLogin()">로그인</button>
     <p class="login-error" id="login-error"></p>
+    <a class="login-teacher-link" href="https://adaptive-vacab-translator.vercel.app/teacher.html">교사용 페이지로 접속</a>
   </div>
 </div>
 
@@ -1638,6 +1649,8 @@ async function initSupabase() {
         loginHandled = false;
         document.getElementById('login-btn').textContent = '로그인';
         document.getElementById('login-btn').disabled = false;
+        document.getElementById('login-email').value = '';
+        document.getElementById('login-password').value = '';
         document.getElementById('user-info').classList.add('hidden');
         document.getElementById('inline-stats').classList.add('hidden');
         document.getElementById('session-end-btn').classList.add('hidden');
@@ -1697,13 +1710,10 @@ async function loadStudentData(userId) {
   }
 
   if (data.role === 'teacher') {
-    // 기본 세션을 teacher-auth 키로 복사하여 teacher.html이 바로 인식하게 함
-    const defaultKey = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
-    if (defaultKey) {
-      localStorage.setItem('teacher-auth', localStorage.getItem(defaultKey));
-    }
-    window.location.href = '/teacher.html';
-    return 'teacher';
+    document.getElementById('login-error').textContent = '교사 계정은 교사용 페이지에서 로그인해주세요.';
+    await supabaseClient.auth.signOut();
+    loginHandled = false;
+    return null;
   }
 
   if (data.current_lang) setLang(data.current_lang);
